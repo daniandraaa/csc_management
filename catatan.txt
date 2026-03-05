@@ -1,0 +1,4 @@
+SUPABASE
+Project URL = https://clujmuvqgffezhmvetqm.supabase.co
+Published API Key = sb_publishable_g73mS3mnhcZFWHpm_nMAtA_ZiUCVypm
+
