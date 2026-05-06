@@ -129,9 +129,7 @@ export default function LoginPage() {
         ))
 
         // Determine the correct step based on fresh data
-        if (freshMember.password_hash) {
-            setStep('password')
-        } else if (!freshMember.has_set_password) {
+        if (!freshMember.password_hash) {
             setStep('setup')
         } else {
             setStep('password')
