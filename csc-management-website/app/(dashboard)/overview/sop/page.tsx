@@ -32,7 +32,7 @@ export default function OverviewSOPPage() {
                 <p className="page-subtitle">Standard Operating Procedure untuk setiap bidang</p>
 
                 <div className="toolbar" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                    <div className="toolbar-left" style={{ width: '100%', sm: { width: 'auto' } }}>
+                    <div className="toolbar-left">
                         <select className="form-select" style={{ width: '100%', maxWidth: '300px' }} value={filterDept} onChange={e => setFilterDept(e.target.value)}>
                             <option value="">Semua Bidang</option>
                             {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -41,7 +41,7 @@ export default function OverviewSOPPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4">
-                    <div className="card" style={{ padding: '0.5rem', maxHeight: '400px', md: { maxHeight: '600px' }, overflowY: 'auto' }}>
+                    <div className="card" style={{ padding: '0.5rem', maxHeight: '600px', overflowY: 'auto' }}>
                         {loading ? <p style={{ padding: '1rem' }}>Memuat...</p> : filtered.length === 0 ? <p style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-tertiary)' }}>Belum ada SOP</p> :
                             filtered.map((s: any) => (
                                 <div key={s.id} onClick={() => { setSelectedSop(s); window.scrollTo({ top: 0, behavior: 'smooth' }) }} style={{
