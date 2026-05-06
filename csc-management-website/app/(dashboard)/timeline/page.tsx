@@ -5,21 +5,25 @@ import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/lib/auth'
 import { canPerformAction } from '@/lib/rbac'
 import { formatDateShort, getInitials } from '@/lib/utils'
-import { Clock, Plus, X, CalendarDays, Upload, FileText, Download, ChevronLeft, ChevronRight, List, Calendar } from 'lucide-react'
+import { Clock, Plus, X, CalendarDays, Upload, FileText, Download, ChevronLeft, ChevronRight, List, Calendar, ClipboardList, Users } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { exportToPdf, exportToCsv } from '@/lib/export'
 
 const TYPES = [
     { value: 'meeting', label: 'Rapat', icon: '📋', color: '#dc2626' },
     { value: 'activity', label: 'Kegiatan', icon: '🎯', color: '#f59e0b' },
     { value: 'event', label: 'Event', icon: '🎉', color: '#3b82f6' },
+    { value: 'invitation', label: 'Undangan', icon: '✉️', color: '#10b981' },
     { value: 'announcement', label: 'Pengumuman', icon: '📢', color: '#8b5cf6' },
 ]
 
 const CSV_COLUMNS = [
     { key: 'title', label: 'Judul', required: true },
     { key: 'type', label: 'Tipe (meeting/activity/event/announcement)', required: true },
-    { key: 'event_date', label: 'Tanggal', required: true },
+    { key: 'event_date', label: 'Tanggal Mulai', required: true },
+    { key: 'end_date', label: 'Tanggal Berakhir' },
+    { key: 'is_full_day', label: 'Full Day (true/false)' },
     { key: 'description', label: 'Deskripsi' },
     { key: 'location', label: 'Lokasi' },
     { key: 'start_time', label: 'Jam Mulai' },
@@ -29,6 +33,7 @@ const CSV_COLUMNS = [
 ]
 const PDF_COLUMNS = [
     { header: 'Tanggal', key: 'event_date' },
+    { header: 'Sampai', key: 'end_date' },
     { header: 'Judul', key: 'title' },
     { header: 'Tipe', key: 'type' },
     { header: 'Lokasi', key: 'location' },
@@ -40,8 +45,12 @@ const DAY_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
 
 export default function TimelinePage() {
     const { currentUser } = useCurrentUser()
+    const router = useRouter()
+    const searchParams = useSearchParams()
+    const targetDate = searchParams.get('date')
     const [items, setItems] = useState<any[]>([])
     const [programs, setPrograms] = useState<any[]>([])
+    const [invitations, setInvitations] = useState<any[]>([])
     const [members, setMembers] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
@@ -52,8 +61,8 @@ export default function TimelinePage() {
     const [calendarYear, setCalendarYear] = useState(new Date().getFullYear())
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [form, setForm] = useState({
-        title: '', description: '', type: 'meeting', event_date: '', start_time: '', end_time: '',
-        location: '', created_by: '', attendees_text: '', decisions: '', notes: ''
+        title: '', description: '', type: 'meeting', event_date: '', end_date: '', is_full_day: false,
+        start_time: '', end_time: '', location: '', created_by: '', attendees_text: '', decisions: '', notes: ''
     })
     const [editId, setEditId] = useState<string | null>(null)
 
@@ -61,28 +70,49 @@ export default function TimelinePage() {
     const canDelete = canPerformAction(currentUser, '/timeline', 'delete')
 
     useEffect(() => { loadData() }, [])
+    
+    useEffect(() => {
+        if (targetDate) {
+            const date = new Date(targetDate)
+            if (!isNaN(date.getTime())) {
+                setCalendarMonth(date.getMonth())
+                setCalendarYear(date.getFullYear())
+                setSelectedDate(targetDate)
+                setViewMode('calendar')
+            }
+        }
+    }, [targetDate])
 
     async function loadData() {
         setLoading(true)
         const { data } = await supabase.from('timeline_entries').select('*, creator:members!timeline_entries_created_by_fkey(full_name,role)').order('event_date', { ascending: false })
         const { data: m } = await supabase.from('members').select('id,full_name,role')
         const { data: p } = await supabase.from('programs').select('*').not('start_date', 'is', null)
-        setItems(data || []); setMembers(m || []); setPrograms(p || []); setLoading(false)
+        const { data: i } = await supabase.from('guest_invitations').select('*').not('event_date', 'is', null)
+        setItems(data || []); setMembers(m || []); setPrograms(p || []); setInvitations(i || []); setLoading(false)
+    }
+
+    const emptyForm = {
+        title: '', description: '', type: 'meeting', event_date: '', end_date: '', is_full_day: false,
+        start_time: '', end_time: '', location: '', created_by: '', attendees_text: '', decisions: '', notes: ''
     }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
+        const { creator, ...cleanForm } = form as any
         const payload = {
-            ...form,
+            ...cleanForm,
             created_by: form.created_by || currentUser?.id || null,
-            start_time: form.start_time || null,
-            end_time: form.end_time || null,
+            start_time: form.is_full_day ? null : (form.start_time || null),
+            end_time: form.is_full_day ? null : (form.end_time || null),
             event_date: form.event_date || new Date().toISOString().split('T')[0],
+            end_date: form.end_date || null,
+            is_full_day: form.is_full_day,
         }
         if (editId) { await supabase.from('timeline_entries').update(payload).eq('id', editId) }
         else { await supabase.from('timeline_entries').insert(payload) }
         setShowModal(false); setEditId(null)
-        setForm({ title: '', description: '', type: 'meeting', event_date: '', start_time: '', end_time: '', location: '', created_by: '', attendees_text: '', decisions: '', notes: '' })
+        setForm(emptyForm)
         loadData()
     }
 
@@ -95,8 +125,7 @@ export default function TimelinePage() {
         if (confirm('Hapus entri?')) { await supabase.from('timeline_entries').delete().eq('id', id); loadData() }
     }
 
-    const filtered = items.filter(i => !filterType || i.type === filterType)
-    const exportData = filtered.map((i: any) => ({ ...i, _creator: i.creator?.full_name || '-' }))
+    const exportData = items.map((i: any) => ({ ...i, _creator: i.creator?.full_name || '-' }))
 
     // Calendar helpers
     function getCalendarDays() {
@@ -110,30 +139,58 @@ export default function TimelinePage() {
 
     function getEventsForDate(day: number) {
         const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-        const timelineEvents = items.filter(i => i.event_date === dateStr)
-        // Also include programs spanning this date
-        const programEvents = programs.filter(p => {
-            if (!p.start_date) return false
-            const start = p.start_date
-            const end = p.end_date || p.start_date
+        return filtered.filter(i => {
+            const start = i.event_date
+            const end = i.end_date || i.event_date
             return dateStr >= start && dateStr <= end
-        }).map(p => ({
-            id: `prog-${p.id}`,
-            title: p.name,
-            type: 'activity',
-            event_date: dateStr,
-            description: p.description,
-            _isProgram: true,
-        }))
-        return [...timelineEvents, ...programEvents]
+        }).sort((a, b) => {
+            if (a.event_date !== b.event_date) return a.event_date.localeCompare(b.event_date)
+            const aEnd = a.end_date || a.event_date
+            const bEnd = b.end_date || b.event_date
+            if (aEnd !== bEnd) return bEnd.localeCompare(aEnd) // Longer events first
+            return a.title.localeCompare(b.title)
+        })
     }
 
     const calendarDays = getCalendarDays()
     const today = new Date()
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
+    // Unified list of all events (Timeline + Programs + Invitations)
+    const allEventsRaw = [
+        ...items,
+        ...programs.filter(p => p.start_date).map(p => ({
+            id: `prog-${p.id}`,
+            title: p.name,
+            type: 'activity',
+            event_date: p.start_date,
+            end_date: p.end_date || p.start_date,
+            description: p.description,
+            _isProgram: true,
+        })),
+        ...invitations.filter(inv => inv.event_date).map(inv => ({
+            id: `inv-${inv.id}`,
+            title: inv.event_name,
+            type: 'invitation',
+            event_date: inv.event_date,
+            end_date: inv.event_date,
+            description: inv.description || inv.notes,
+            location: inv.event_location,
+            _isInvitation: true,
+        }))
+    ]
+
+    // Remove any duplicates by ID
+    const allEvents = Array.from(new Map(allEventsRaw.map(item => [item.id, item])).values())
+
+    const filtered = allEvents.filter(i => !filterType || i.type === filterType)
+
     // Selected date events
-    const selectedDateEvents = selectedDate ? items.filter(i => i.event_date === selectedDate) : []
+    const selectedDateEvents = selectedDate ? filtered.filter(i => {
+        const start = i.event_date
+        const end = i.end_date || i.event_date
+        return selectedDate >= start && selectedDate <= end
+    }) : []
 
     // LIST VIEW: group by month
     const grouped = filtered.reduce((acc: Record<string, any[]>, item) => {
@@ -153,65 +210,88 @@ export default function TimelinePage() {
 
                 <div className="stats-grid">
                     {TYPES.map(t => {
-                        const count = items.filter(i => i.type === t.value).length
+                        const count = allEvents.filter(i => i.type === t.value).length
                         return (
                             <div key={t.value} className="stat-card" style={{ borderLeft: `3px solid ${t.color}` }}>
                                 <div>
-                                    <div className="stat-value" style={{ color: t.color, fontSize: '1.5rem' }}>{count}</div>
-                                    <div className="stat-label">{t.icon} {t.label}</div>
+                                    <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.025em', marginBottom: 4 }}>{t.label}</div>
+                                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                                        {count}
+                                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>Total</span>
+                                    </div>
                                 </div>
+                                <div style={{ width: 48, height: 48, borderRadius: 12, background: `${t.color}10`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>{t.icon}</div>
                             </div>
                         )
                     })}
                 </div>
 
-                <div className="toolbar">
+                <div className="toolbar timeline-toolbar">
                     <div className="toolbar-left">
                         {/* View Mode Toggle */}
-                        <div style={{ display: 'flex', gap: 2, background: 'var(--color-surface-tertiary)', borderRadius: 8, padding: 2 }}>
+                        <div className="view-mode-toggle">
                             <button
                                 className={`btn btn-sm ${viewMode === 'calendar' ? 'btn-primary' : 'btn-ghost'}`}
                                 onClick={() => setViewMode('calendar')}
-                                style={{ borderRadius: 6 }}
-                            ><Calendar size={14} /> Kalender</button>
+                            ><Calendar size={14} /> <span className="hidden sm:inline">Kalender</span></button>
                             <button
                                 className={`btn btn-sm ${viewMode === 'list' ? 'btn-primary' : 'btn-ghost'}`}
                                 onClick={() => setViewMode('list')}
-                                style={{ borderRadius: 6 }}
-                            ><List size={14} /> List</button>
+                            ><List size={14} /> <span className="hidden sm:inline">List View</span></button>
                         </div>
-                        <div style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
-                            <button className={`btn ${filterType === '' ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setFilterType('')}>Semua</button>
-                            {TYPES.map(t => <button key={t.value} className={`btn ${filterType === t.value ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setFilterType(t.value)}>{t.icon} {t.label}</button>)}
+                        
+                        <div className="toolbar-separator hidden lg:block" />
+
+                        <div className="filter-group">
+                            <button 
+                                className={`btn btn-sm ${filterType === '' ? 'btn-primary' : 'btn-ghost'}`} 
+                                onClick={() => setFilterType('')}
+                            >Semua</button>
+                            {TYPES.map(t => (
+                                <button 
+                                    key={t.value} 
+                                    className={`btn btn-sm ${filterType === t.value ? 'btn-primary' : 'btn-ghost'}`} 
+                                    onClick={() => setFilterType(filterType === t.value ? '' : t.value)}
+                                    title={t.label}
+                                >
+                                    <span>{t.icon}</span> <span className="hidden lg:inline">{t.label}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
                     <div className="toolbar-right">
                         {canCreate && (
-                            <>
-                                <button className="btn btn-secondary btn-sm" onClick={() => setShowCsvImport(true)}><Upload size={14} /> Import CSV</button>
-                                <button className="btn btn-secondary btn-sm" onClick={() => exportToCsv(PDF_COLUMNS, exportData, `CSC_Timeline_${new Date().toISOString().split('T')[0]}.csv`)}><Download size={14} /> CSV</button>
-                                <button className="btn btn-secondary btn-sm" onClick={() => exportToPdf({ title: 'Timeline Rapat & Kegiatan CSC', subtitle: `Total: ${filtered.length} entri`, columns: PDF_COLUMNS, data: exportData })}><FileText size={14} /> Export PDF</button>
-                                <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ title: '', description: '', type: 'meeting', event_date: new Date().toISOString().split('T')[0], start_time: '', end_time: '', location: '', created_by: '', attendees_text: '', decisions: '', notes: '' }); setShowModal(true) }}>
-                                    <Plus size={16} /> Tambah Entri
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button className="btn btn-secondary btn-sm hidden md:flex" style={{ borderRadius: 8 }} onClick={() => setShowCsvImport(true)}><Upload size={14} /> Import</button>
+                                <button className="btn btn-primary btn-sm" style={{ borderRadius: 8, padding: '0.5rem 1rem' }} onClick={() => { setEditId(null); setForm({ ...emptyForm, event_date: new Date().toISOString().split('T')[0] }); setShowModal(true) }}>
+                                    <Plus size={16} /> <span className="hidden sm:inline">Tambah</span>
                                 </button>
-                            </>
+                            </div>
                         )}
                     </div>
                 </div>
 
                 {/* CALENDAR VIEW */}
                 {viewMode === 'calendar' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: selectedDate ? '1fr 360px' : '1fr', gap: '1rem' }}>
-                        <div className="card" style={{ padding: '1.25rem' }}>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="card lg:col-span-2 calendar-card">
                             {/* Calendar Header */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', minWidth: '600px' }}>
                                 <button className="btn btn-ghost btn-sm" onClick={() => {
                                     if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(y => y - 1) }
                                     else setCalendarMonth(m => m - 1)
                                 }}><ChevronLeft size={18} /></button>
-                                <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#0f172a' }}>
-                                    {MONTH_NAMES[calendarMonth]} {calendarYear}
-                                </h3>
+                                <div style={{ textAlign: 'center' }}>
+                                    <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
+                                        {MONTH_NAMES[calendarMonth]} {calendarYear}
+                                    </h3>
+                                    <p style={{ fontSize: '0.6875rem', color: '#94a3b8', marginTop: 2 }}>
+                                        {items.filter(i => {
+                                            const d = new Date(i.event_date)
+                                            return d.getMonth() === calendarMonth && d.getFullYear() === calendarYear
+                                        }).length} kegiatan bulan ini
+                                    </p>
+                                </div>
                                 <button className="btn btn-ghost btn-sm" onClick={() => {
                                     if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(y => y + 1) }
                                     else setCalendarMonth(m => m + 1)
@@ -219,13 +299,9 @@ export default function TimelinePage() {
                             </div>
 
                             {/* Day headers */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 }}>
+                            <div className="calendar-grid">
                                 {DAY_NAMES.map(d => (
-                                    <div key={d} style={{
-                                        textAlign: 'center', padding: '0.5rem',
-                                        fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8',
-                                        textTransform: 'uppercase',
-                                    }}>{d}</div>
+                                    <div key={d} className={`calendar-day-header ${d === 'Min' ? 'sunday' : ''}`}>{d}</div>
                                 ))}
 
                                 {/* Calendar Cells */}
@@ -235,74 +311,110 @@ export default function TimelinePage() {
                                     const dayEvents = getEventsForDate(day)
                                     const isToday = dateStr === todayStr
                                     const isSelected = dateStr === selectedDate
+                                    const isSunday = new Date(calendarYear, calendarMonth, day).getDay() === 0
+                                    const hasEvents = dayEvents.length > 0
 
                                     return (
                                         <div
                                             key={day}
                                             onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                                             style={{
-                                                minHeight: 80, padding: '0.375rem',
-                                                border: isSelected ? '2px solid #6d28d9' : '1px solid var(--color-border-primary)',
-                                                borderRadius: 8, cursor: 'pointer',
-                                                background: isSelected ? '#f5f3ff' : isToday ? '#fefce8' : 'white',
-                                                transition: 'all 0.15s',
+                                                minHeight: 90, padding: '0.4rem',
+                                                border: isSelected ? '2px solid #6d28d9' : isToday ? '2px solid #e11d48' : '1px solid var(--color-border-primary)',
+                                                borderRadius: 12, cursor: 'pointer',
+                                                background: isSelected ? 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)' : isToday ? 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)' : hasEvents ? '#fafbff' : 'white',
+                                                transition: 'all 0.2s ease',
+                                                position: 'relative',
+                                                boxShadow: isSelected ? '0 4px 12px rgba(109, 40, 217, 0.15)' : isToday ? '0 4px 12px rgba(225, 29, 72, 0.1)' : 'none',
+                                                display: 'flex', flexDirection: 'column'
                                             }}
                                         >
-                                            <div style={{
-                                                fontSize: '0.8125rem', fontWeight: isToday ? 700 : 500,
-                                                color: isToday ? '#dc2626' : '#374151',
-                                                marginBottom: 2,
-                                            }}>{day}</div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                            {/* Day Number */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                                <div style={{
+                                                    fontSize: '0.8125rem', fontWeight: isToday ? 800 : 600,
+                                                    color: isToday ? 'white' : isSunday ? '#ef4444' : '#374151',
+                                                    width: isToday ? 24 : 'auto', height: isToday ? 24 : 'auto',
+                                                    borderRadius: '50%',
+                                                    background: isToday ? 'linear-gradient(135deg, #dc2626, #b91c1c)' : 'none',
+                                                    display: isToday ? 'flex' : 'block',
+                                                    alignItems: 'center', justifyContent: 'center',
+                                                    boxShadow: isToday ? '0 2px 6px rgba(220, 38, 38, 0.3)' : 'none',
+                                                }}>{day}</div>
+                                                {dayEvents.length > 0 && (
+                                                    <div style={{
+                                                        width: 14, height: 14, borderRadius: '50%',
+                                                        background: dayEvents.length >= 3 ? '#e11d48' : dayEvents.length >= 2 ? '#6d28d9' : '#94a3b8',
+                                                        color: 'white', fontSize: '0.625rem', fontWeight: 800,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    }}>{dayEvents.length}</div>
+                                                )}
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
                                                 {dayEvents.slice(0, 3).map((ev: any) => {
                                                     const typeInfo = TYPES.find(t => t.value === ev.type)
+                                                    const isStart = ev.event_date === dateStr
                                                     return (
-                                                        <div key={ev.id} style={{
-                                                            padding: '1px 4px', borderRadius: 4,
-                                                            fontSize: '0.625rem', fontWeight: 500,
-                                                            background: `${typeInfo?.color || '#6b7280'}20`,
+                                                        <div key={`${ev.id}-${dateStr}`} style={{
+                                                            padding: '1px 4px',
+                                                            borderRadius: 3,
+                                                            fontSize: '0.625rem', fontWeight: 700,
+                                                            background: isStart ? `${typeInfo?.color || '#6b7280'}15` : 'transparent',
                                                             color: typeInfo?.color || '#6b7280',
                                                             overflow: 'hidden', textOverflow: 'ellipsis',
                                                             whiteSpace: 'nowrap',
-                                                            borderLeft: `2px solid ${typeInfo?.color || '#6b7280'}`,
+                                                            borderLeft: isStart ? `2px solid ${typeInfo?.color || '#6b7280'}` : 'none',
+                                                            display: 'flex', alignItems: 'center', gap: 2,
+                                                            height: 16,
                                                         }}>
-                                                            {ev.title}
+                                                            <span style={{ opacity: isStart ? 1 : 0.6 }}>{ev.title}</span>
                                                         </div>
                                                     )
                                                 })}
-                                                {dayEvents.length > 3 && (
-                                                    <div style={{ fontSize: '0.625rem', color: '#94a3b8', paddingLeft: 4 }}>
-                                                        +{dayEvents.length - 3} lagi
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
                                     )
                                 })}
                             </div>
 
-                            {/* Legend */}
-                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem', flexWrap: 'wrap' }}>
-                                {TYPES.map(t => (
-                                    <div key={t.value} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem' }}>
-                                        <div style={{ width: 10, height: 10, borderRadius: 3, background: t.color }} />
-                                        <span style={{ color: '#64748b' }}>{t.label}</span>
-                                    </div>
-                                ))}
+                            {/* Legend with counts */}
+                            <div className="calendar-legend">
+                                {TYPES.map(t => {
+                                    const count = allEvents.filter(i => i.type === t.value).length
+                                    return (
+                                        <div key={t.value} className={`legend-item ${filterType === t.value ? 'active' : ''}`} 
+                                            style={{ '--type-color': t.color } as any}
+                                            onClick={() => setFilterType(filterType === t.value ? '' : t.value)}>
+                                            <div className="legend-dot" style={{ background: t.color }} />
+                                            <span className="legend-label">{t.label}</span>
+                                            <span className="legend-count">({count})</span>
+                                        </div>
+                                    )
+                                })}
                             </div>
                         </div>
 
                         {/* Selected Date Detail Panel */}
                         {selectedDate && (
-                            <div className="card" style={{ padding: '1rem', maxHeight: 600, overflow: 'auto' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                    <h4 style={{ fontSize: '0.9375rem', fontWeight: 600 }}>
-                                        {formatDateShort(selectedDate)}
-                                    </h4>
-                                    <button className="btn btn-ghost btn-sm" onClick={() => setSelectedDate(null)}><X size={14} /></button>
+                            <div className="card selected-date-panel">
+                                {/* Panel Header */}
+                                <div className="panel-header">
+                                    <div>
+                                        <h4 className="panel-title">
+                                            📅 {formatDateShort(selectedDate)}
+                                        </h4>
+                                        <p className="panel-subtitle">
+                                            {['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][new Date(selectedDate).getDay()]}
+                                            {' · '}{selectedDateEvents.length} kegiatan
+                                        </p>
+                                    </div>
+                                    <button className="btn btn-ghost btn-sm close-panel" onClick={() => setSelectedDate(null)}><X size={16} /></button>
                                 </div>
+                                <div className="panel-body">
                                 {selectedDateEvents.length === 0 ? (
-                                    <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.8125rem', padding: '2rem 0' }}>Tidak ada kegiatan</p>
+                                    <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                                        <p style={{ color: '#94a3b8', fontSize: '0.8125rem' }}>Tidak ada kegiatan</p>
+                                    </div>
                                 ) : selectedDateEvents.map((ev: any) => {
                                     const typeInfo = TYPES.find(t => t.value === ev.type)
                                     return (
@@ -312,23 +424,19 @@ export default function TimelinePage() {
                                             marginBottom: '0.5rem',
                                             borderLeft: `3px solid ${typeInfo?.color || '#6b7280'}`,
                                         }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                                                <span style={{ fontSize: '1rem' }}>{typeInfo?.icon}</span>
-                                                <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{ev.title}</span>
-                                            </div>
-                                            <span className="badge" style={{ background: `${typeInfo?.color}15`, color: typeInfo?.color, fontSize: '0.6875rem', marginBottom: 4 }}>{typeInfo?.label}</span>
-                                            {ev.start_time && <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 4 }}>🕐 {ev.start_time.slice(0, 5)}{ev.end_time ? ` - ${ev.end_time.slice(0, 5)}` : ''}</div>}
+                                            <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: 4 }}>{ev.title}</div>
+                                            {ev.is_full_day ? <div style={{ fontSize: '0.75rem', color: '#64748b' }}>🕐 Full Day</div> : ev.start_time && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>🕐 {ev.start_time.slice(0, 5)}{ev.end_time ? ` - ${ev.end_time.slice(0, 5)}` : ''}</div>}
                                             {ev.location && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>📍 {ev.location}</div>}
-                                            {ev.description && <p style={{ fontSize: '0.75rem', color: '#475569', marginTop: 4 }}>{ev.description}</p>}
-                                            {(canCreate || canDelete) && (
+                                            {(canCreate || canDelete) && !ev._isProgram && (
                                                 <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
-                                                    <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.6875rem' }} onClick={() => { setForm({ title: ev.title, description: ev.description || '', type: ev.type, event_date: ev.event_date, start_time: ev.start_time || '', end_time: ev.end_time || '', location: ev.location || '', created_by: ev.created_by || '', attendees_text: ev.attendees_text || '', decisions: ev.decisions || '', notes: ev.notes || '' }); setEditId(ev.id); setShowModal(true) }}>Edit</button>
+                                                    <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.6875rem' }} onClick={() => { setForm({ ...ev, end_date: ev.end_date || '', attendees_text: ev.attendees_text || '', decisions: ev.decisions || '', notes: ev.notes || '' }); setEditId(ev.id); setShowModal(true) }}>Edit</button>
                                                     {canDelete && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)', fontSize: '0.6875rem' }} onClick={() => handleDelete(ev.id)}>Hapus</button>}
                                                 </div>
                                             )}
                                         </div>
                                     )
                                 })}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -336,62 +444,142 @@ export default function TimelinePage() {
 
                 {/* LIST VIEW */}
                 {viewMode === 'list' && (
-                    loading ? <p style={{ textAlign: 'center', padding: '2rem' }}>Memuat...</p> :
-                        Object.keys(grouped).length === 0 ? <div className="card"><div className="empty-state"><Clock size={48} /><h3>Belum ada entri timeline</h3><p>Tambahkan rapat atau kegiatan pertama.</p></div></div> :
-                            Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a)).map(([monthKey, monthItems]) => {
-                                const [year, month] = monthKey.split('-')
-                                return (
-                                    <div key={monthKey} style={{ marginBottom: '2rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                                            <CalendarDays size={18} style={{ color: '#dc2626' }} />
-                                            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#991b1b' }}>{MONTH_NAMES[parseInt(month) - 1]} {year}</h2>
-                                            <span className="badge badge-default">{monthItems.length} entri</span>
-                                        </div>
-                                        <div className="timeline">
-                                            {(monthItems as any[]).map((item: any) => {
-                                                const typeInfo = TYPES.find(t => t.value === item.type)!
-                                                return (
-                                                    <div key={item.id} className={`timeline-item ${item.type}`}>
-                                                        <div className="timeline-date">{formatDateShort(item.event_date)} {item.start_time && `· ${item.start_time.slice(0, 5)}`}{item.end_time && ` - ${item.end_time.slice(0, 5)}`}</div>
-                                                        <div className="timeline-card">
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                                    <span style={{ fontSize: '1.125rem' }}>{typeInfo.icon}</span>
-                                                                    <h3 style={{ fontWeight: 600, fontSize: '0.9375rem' }}>{item.title}</h3>
+                    loading ? <p style={{ textAlign: 'center', padding: '3rem' }}>Memuat data timeline...</p> :
+                        Object.keys(grouped).length === 0 ? <div className="card"><div className="empty-state"><Clock size={48} /><h3>Belum ada entri timeline</h3><p>Tambahkan rapat atau kegiatan pertama Anda.</p></div></div> :
+                            <div className="timeline-list-container">
+                                {/* Main Timeline Line */}
+                                <div className="timeline-vertical-line" />
+                                
+                                {Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a)).map(([monthKey, monthItems]) => {
+                                    const [year, month] = monthKey.split('-')
+                                    return (
+                                        <div key={monthKey} style={{ marginBottom: '3rem' }}>
+                                            {/* Month Header */}
+                                            <div style={{ 
+                                                position: 'relative', marginBottom: '1.5rem', 
+                                                display: 'flex', alignItems: 'center', gap: '1rem' 
+                                            }}>
+                                                <div style={{ 
+                                                    position: 'absolute', left: '-2.05rem', 
+                                                    width: '12px', height: '12px', borderRadius: '50%', 
+                                                    background: 'white', border: '3px solid #e11d48',
+                                                    zIndex: 2, boxShadow: '0 0 0 4px rgba(225, 29, 72, 0.1)'
+                                                }} />
+                                                <h2 style={{ 
+                                                    fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', 
+                                                    letterSpacing: '-0.02em', background: '#f8fafc', paddingRight: '1rem'
+                                                }}>
+                                                    {MONTH_NAMES[parseInt(month) - 1]} {year}
+                                                </h2>
+                                                <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                                {(monthItems as any[]).map((item: any) => {
+                                                    const typeInfo = TYPES.find(t => t.value === item.type)!
+                                                    return (
+                                                        <div key={item.id} className="timeline-item" style={{ position: 'relative' }}>
+                                                            {/* Day Circle */}
+                                                            <div style={{ 
+                                                                position: 'absolute', left: '-2rem', top: '1rem',
+                                                                width: '8px', height: '8px', borderRadius: '50%',
+                                                                background: typeInfo.color, zIndex: 1
+                                                            }} />
+                                                            
+                                                            <div className="card" style={{ 
+                                                                padding: '1.25rem', borderLeft: `4px solid ${typeInfo.color}`,
+                                                                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                                                                cursor: 'default'
+                                                            }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                                                                    <div>
+                                                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>
+                                                                            {formatDateShort(item.event_date)}
+                                                                            {item.end_date && item.end_date !== item.event_date && ` — ${formatDateShort(item.end_date)}`}
+                                                                        </div>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                                                                            <span style={{ fontSize: '1.25rem' }}>{typeInfo.icon}</span>
+                                                                            <h3 style={{ fontWeight: 700, fontSize: '1rem', color: '#1e293b' }}>{item.title}</h3>
+                                                                        </div>
+                                                                    </div>
+                                                                    <span className="badge" style={{ background: `${typeInfo.color}10`, color: typeInfo.color, fontWeight: 700, fontSize: '0.6875rem' }}>{typeInfo.label}</span>
                                                                 </div>
-                                                                <span className="badge" style={{ background: `${typeInfo.color}15`, color: typeInfo.color }}>{typeInfo.label}</span>
-                                                            </div>
-                                                            {item.description && <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '0.5rem' }}>{item.description}</p>}
-                                                            {item.location && <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-tertiary)', marginBottom: '0.25rem' }}>📍 {item.location}</div>}
-                                                            {item.attendees_text && (
-                                                                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem', padding: '0.5rem', background: 'var(--color-surface-tertiary)', borderRadius: 'var(--radius-sm)' }}>
-                                                                    <strong>Peserta:</strong> {item.attendees_text}
+
+                                                                {item.description && <p style={{ fontSize: '0.875rem', color: '#475569', lineHeight: 1.6, marginBottom: '1rem' }}>{item.description}</p>}
+                                                                
+                                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: 8 }}>
+                                                                        <Clock size={14} style={{ color: '#94a3b8' }} />
+                                                                        <span style={{ fontWeight: 500 }}>{item.is_full_day ? 'Full Day' : <>{item.start_time?.slice(0, 5) || '--:--'}{item.end_time && ` - ${item.end_time.slice(0, 5)}`}</>}</span>
+                                                                    </div>
+                                                                    {item.location && (
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: 8 }}>
+                                                                            <span style={{ fontSize: '1rem' }}>📍</span>
+                                                                            <span style={{ fontWeight: 500 }}>{item.location}</span>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                            )}
-                                                            {item.decisions && (
-                                                                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem', padding: '0.5rem', background: '#fef2f2', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid #dc2626' }}>
-                                                                    <strong>Keputusan:</strong> {item.decisions}
-                                                                </div>
-                                                            )}
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid var(--color-border-primary)' }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>
-                                                                    {item.creator && <><div className="avatar avatar-sm">{getInitials(item.creator.full_name)}</div><span>{item.creator.full_name}</span></>}
-                                                                </div>
-                                                                {canCreate && (
-                                                                    <div style={{ display: 'flex', gap: 4 }}>
-                                                                        <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ title: item.title, description: item.description || '', type: item.type, event_date: item.event_date, start_time: item.start_time || '', end_time: item.end_time || '', location: item.location || '', created_by: item.created_by || '', attendees_text: item.attendees_text || '', decisions: item.decisions || '', notes: item.notes || '' }); setEditId(item.id); setShowModal(true) }}>Edit</button>
-                                                                        {canDelete && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(item.id)}>Hapus</button>}
+
+                                                                {item.attendees_text && (
+                                                                    <div style={{ marginBottom: '1rem' }}>
+                                                                        <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                            <Users size={12} /> Peserta
+                                                                        </div>
+                                                                        <p style={{ fontSize: '0.8125rem', color: '#475569', fontWeight: 500 }}>{item.attendees_text}</p>
                                                                     </div>
                                                                 )}
+
+                                                                {item.decisions && (
+                                                                    <div style={{ 
+                                                                        padding: '0.875rem', background: '#fff1f2', 
+                                                                        borderRadius: 10, border: '1px solid #fecdd3',
+                                                                        marginBottom: '1rem'
+                                                                    }}>
+                                                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#be123c', textTransform: 'uppercase', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                            <ClipboardList size={12} /> Keputusan Utama
+                                                                        </div>
+                                                                        <p style={{ fontSize: '0.8125rem', color: '#9f1239', fontWeight: 500 }}>{item.decisions}</p>
+                                                                    </div>
+                                                                )}
+
+                                                                {item.notes && (
+                                                                    <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f8fafc', borderRadius: 10, borderLeft: '3px solid #e2e8f0' }}>
+                                                                        <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Catatan Tambahan</div>
+                                                                        <p style={{ fontSize: '0.8125rem', color: '#475569', fontStyle: 'italic' }}>"{item.notes}"</p>
+                                                                    </div>
+                                                                )}
+
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                        {item.creator && (
+                                                                            <>
+                                                                                <div style={{ 
+                                                                                    width: 24, height: 24, borderRadius: '50%', background: '#e2e8f0',
+                                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                                    fontSize: '0.625rem', fontWeight: 700, color: '#475569'
+                                                                                }}>{getInitials(item.creator.full_name)}</div>
+                                                                                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>{item.creator.full_name}</span>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', gap: 4 }}>
+                                                                        {canCreate && !item._isProgram && (
+                                                                            <>
+                                                                                <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem' }} onClick={() => { setForm({ title: item.title, description: item.description || '', type: item.type, event_date: item.event_date, end_date: item.end_date || '', is_full_day: item.is_full_day || false, start_time: item.start_time || '', end_time: item.end_time || '', location: item.location || '', created_by: item.created_by || '', attendees_text: item.attendees_text || '', decisions: item.decisions || '', notes: item.notes || '' }); setEditId(item.id); setShowModal(true) }}>Edit</button>
+                                                                                {canDelete && <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444', fontSize: '0.75rem' }} onClick={() => handleDelete(item.id)}>Hapus</button>}
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                )
-                                            })}
+                                                    )
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
-                                )
-                            })
+                                    )
+                                })}
+                            </div>
                 )}
 
                 <CsvImportModal isOpen={showCsvImport} onClose={() => { setShowCsvImport(false); loadData() }} onImport={handleCsvImport}
@@ -405,13 +593,29 @@ export default function TimelinePage() {
                                 <div className="form-group"><label className="form-label">Judul *</label><input className="form-input" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="cth: Rapat Mingguan, Workshop AI..." /></div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div className="form-group"><label className="form-label">Tipe *</label><select className="form-select" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>{TYPES.map(t => <option key={t.value} value={t.value}>{t.icon} {t.label}</option>)}</select></div>
-                                    <div className="form-group"><label className="form-label">Tanggal *</label><input className="form-input" type="date" required value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} /></div>
+                                    <div className="form-group"><label className="form-label">Lokasi</label><input className="form-input" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="cth: Ruang Meeting, Online via Zoom" /></div>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                                    <div className="form-group"><label className="form-label">Jam Mulai</label><input className="form-input" type="time" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} /></div>
-                                    <div className="form-group"><label className="form-label">Jam Selesai</label><input className="form-input" type="time" value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })} /></div>
-                                    <div className="form-group"><label className="form-label">Lokasi</label><input className="form-input" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} /></div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div className="form-group"><label className="form-label">Tanggal Mulai *</label><input className="form-input" type="date" required value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} /></div>
+                                    <div className="form-group"><label className="form-label">Tanggal Berakhir</label><input className="form-input" type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} min={form.event_date} /><p style={{ fontSize: '0.6875rem', color: '#94a3b8', marginTop: 2 }}>Kosongkan jika hanya 1 hari</p></div>
                                 </div>
+                                {/* Full Day Toggle */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: form.is_full_day ? '#f0fdf4' : '#f8fafc', borderRadius: 10, border: `1px solid ${form.is_full_day ? '#86efac' : '#e2e8f0'}`, marginBottom: '0.25rem', cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setForm({ ...form, is_full_day: !form.is_full_day })}>
+                                    <div style={{ width: 40, height: 22, borderRadius: 11, background: form.is_full_day ? '#22c55e' : '#cbd5e1', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                                        <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'white', position: 'absolute', top: 2, left: form.is_full_day ? 20 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: form.is_full_day ? '#15803d' : '#374151' }}>Full Day (Seharian)</div>
+                                        <div style={{ fontSize: '0.6875rem', color: '#94a3b8' }}>{form.is_full_day ? 'Kegiatan berlangsung seharian penuh' : 'Atur jam mulai dan jam selesai'}</div>
+                                    </div>
+                                </div>
+                                {/* Time inputs - only show when NOT full day */}
+                                {!form.is_full_day && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                        <div className="form-group"><label className="form-label">Jam Mulai</label><input className="form-input" type="time" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Jam Selesai</label><input className="form-input" type="time" value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })} /></div>
+                                    </div>
+                                )}
                                 <div className="form-group"><label className="form-label">Deskripsi</label><textarea className="form-textarea" style={{ minHeight: 80 }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Deskripsi rapat/kegiatan..." /></div>
                                 <div className="form-group"><label className="form-label">Peserta</label><input className="form-input" value={form.attendees_text} onChange={e => setForm({ ...form, attendees_text: e.target.value })} placeholder="cth: Seluruh staf, Bidang Operating, dll" /></div>
                                 <div className="form-group"><label className="form-label">Keputusan/Hasil</label><textarea className="form-textarea" style={{ minHeight: 60 }} value={form.decisions} onChange={e => setForm({ ...form, decisions: e.target.value })} placeholder="Keputusan atau hasil dari rapat/kegiatan..." /></div>

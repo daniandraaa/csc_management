@@ -31,26 +31,26 @@ export default function OverviewSOPPage() {
                 <h1 className="page-title">Panduan SOP</h1>
                 <p className="page-subtitle">Standard Operating Procedure untuk setiap bidang</p>
 
-                <div className="toolbar">
-                    <div className="toolbar-left">
-                        <select className="form-select" style={{ width: 'auto' }} value={filterDept} onChange={e => setFilterDept(e.target.value)}>
+                <div className="toolbar" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div className="toolbar-left" style={{ width: '100%', sm: { width: 'auto' } }}>
+                        <select className="form-select" style={{ width: '100%', maxWidth: '300px' }} value={filterDept} onChange={e => setFilterDept(e.target.value)}>
                             <option value="">Semua Bidang</option>
                             {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '1rem' }}>
-                    <div className="card" style={{ padding: '0.5rem', maxHeight: 600, overflowY: 'auto' }}>
+                <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4">
+                    <div className="card" style={{ padding: '0.5rem', maxHeight: '400px', md: { maxHeight: '600px' }, overflowY: 'auto' }}>
                         {loading ? <p style={{ padding: '1rem' }}>Memuat...</p> : filtered.length === 0 ? <p style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-tertiary)' }}>Belum ada SOP</p> :
                             filtered.map((s: any) => (
-                                <div key={s.id} onClick={() => setSelectedSop(s)} style={{
+                                <div key={s.id} onClick={() => { setSelectedSop(s); window.scrollTo({ top: 0, behavior: 'smooth' }) }} style={{
                                     padding: '0.75rem 1rem', cursor: 'pointer', borderRadius: 'var(--radius-md)',
                                     background: selectedSop?.id === s.id ? 'var(--color-brand-50)' : 'transparent',
                                     borderLeft: selectedSop?.id === s.id ? '3px solid var(--color-brand-500)' : '3px solid transparent',
                                     marginBottom: 2
                                 }}>
-                                    <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{s.title}</div>
+                                    <div style={{ fontWeight: 600, fontSize: '0.875rem', color: selectedSop?.id === s.id ? 'var(--color-brand-600)' : 'var(--color-text-primary)' }}>{s.title}</div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>{s.department?.name} · v{s.version}</div>
                                 </div>
                             ))}

@@ -37,7 +37,7 @@ export default function AdvocacyPage() {
 
     async function loadData() {
         setLoading(true)
-        const { data } = await supabase.from('advocacy_aspirations').select('*, member:members(id,full_name)').order('created_at', { ascending: false })
+        const { data } = await supabase.from('advocacy_aspirations').select('*, member:members!advocacy_aspirations_member_id_fkey(id,full_name)').order('created_at', { ascending: false })
         const { data: m } = await supabase.from('members').select('id,full_name').order('full_name')
         setItems(data || []); setMembers(m || []); setLoading(false)
     }
@@ -55,7 +55,7 @@ export default function AdvocacyPage() {
     }
 
     const filtered = items.filter((i: any) =>
-        (i.title?.toLowerCase().includes(search.toLowerCase()) || i.member?.full_name?.toLowerCase().includes(search.toLowerCase())) &&
+        (i.title?.toLowerCase().includes(search.toLowerCase()) || (i.member?.full_name?.toLowerCase() || '').includes(search.toLowerCase())) &&
         (!filterCategory || i.category === filterCategory) &&
         (!filterStatus || i.status === filterStatus)
     )
@@ -121,7 +121,7 @@ export default function AdvocacyPage() {
                             <div className="modal-header"><h2>{editId ? 'Edit' : 'Tambah Advokasi/Aspirasi'}</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)}><X size={18} /></button></div>
                             <form onSubmit={handleSubmit}>
                                 <div className="modal-body">
-                                    <div className="form-group"><label className="form-label">Anggota *</label><select className="form-select" required value={form.member_id} onChange={e => setForm({ ...form, member_id: e.target.value })}><option value="">Pilih</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
+                                    <div className="form-group"><label className="form-label">Anggota {editId ? '' : '*'}</label><select className="form-select" required={!editId} value={form.member_id} onChange={e => setForm({ ...form, member_id: e.target.value })}><option value="">{editId ? 'Anonim (Tetap Anonim)' : 'Pilih'}</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
                                     <div className="form-group"><label className="form-label">Kategori *</label><select className="form-select" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}><option value="advocacy">Advokasi</option><option value="aspiration">Aspirasi</option></select></div>
                                     <div className="form-group"><label className="form-label">Judul *</label><input className="form-input" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
                                     <div className="form-group"><label className="form-label">Deskripsi *</label><textarea className="form-textarea" required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>

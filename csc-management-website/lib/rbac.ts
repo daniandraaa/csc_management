@@ -42,6 +42,8 @@ const PAGE_PERMISSIONS: PagePermission[] = [
         path: '/overview/logbook', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
         actions: { create: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], delete: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'] }
     },
+    { path: '/overview/evaluations', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
+    { path: '/overview/kpi', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
     {
         path: '/overview/advocacy', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
         actions: { create: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'] }
@@ -58,7 +60,7 @@ const PAGE_PERMISSIONS: PagePermission[] = [
     // Human Resources
     {
         path: '/hr/performance', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level'], approve: ['BOE', 'C Level'], delete: ['BOE', 'C Level'] }
+        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'C Level'], delete: ['BOE', 'C Level'] }
     },
     {
         path: '/hr/advocacy', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
@@ -93,6 +95,10 @@ const PAGE_PERMISSIONS: PagePermission[] = [
     {
         path: '/operating/sop', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
         actions: { create: ['BOE', 'C Level', 'Secretary'], delete: ['BOE', 'C Level'] }
+    },
+    {
+        path: '/operating/orders', roles: ['BOE', 'C Level', 'Secretary', 'Staff', 'Business Partner'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level'], delete: ['BOE', 'C Level'] }
     },
 
     // Finance
@@ -136,8 +142,16 @@ const PAGE_PERMISSIONS: PagePermission[] = [
         actions: { create: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'] }
     },
     {
+        path: '/overview/pr-request', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'] }
+    },
+    {
+        path: '/marketing/pr-tasks', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], delete: ['BOE', 'C Level'] }
+    },
+    {
         path: '/admin-review', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff', 'Business Partner'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'Secretary', 'Administration'] }
+        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'Administration'] }
     },
 ]
 
@@ -174,8 +188,20 @@ export function canPerformAction(user: CurrentUser | null, path: string, action:
 
     // C Level can approve in their own department section or if page is in their department
     if (action === 'approve' && user.role === 'C Level') {
-        const isDeptPage = isDepartmentPage(path, user.department)
+        let isDeptPage = isDepartmentPage(path, user.department)
+        
+        // Special case: HR C-Level can approve on /admin-review
+        if (path.startsWith('/admin-review') && user.department === 'Human Resource') {
+            isDeptPage = true
+        }
+        
         return allowedRoles.includes('C Level') && isDeptPage
+    }
+
+    // Special case for Administration "role"
+    if (allowedRoles.includes('Administration')) {
+        const isAdministrationStaff = user.department === 'Human Resource' && user.position?.includes('Administration')
+        if (isAdministrationStaff) return true
     }
 
     return allowedRoles.includes(user.role)
@@ -221,11 +247,12 @@ export function isBOE(user: CurrentUser | null): boolean {
 }
 
 /**
- * Check if user is Administration role
+ * Check if user is Administration role or position
  */
 export function isAdministration(user: CurrentUser | null): boolean {
     if (!user) return false
-    return user.role === 'Administration' || user.role === 'BOE'
+    const isAdministrationStaff = user.department === 'Human Resource' && user.position?.includes('Administration')
+    return user.role === 'Administration' || isAdministrationStaff || user.role === 'BOE'
 }
 
 /**
@@ -241,52 +268,80 @@ export function isSecretary(user: CurrentUser | null): boolean {
  */
 export function getVisibleSections(user: CurrentUser | null): string[] {
     if (!user) return []
-    if (user.role === 'BOE') return ['Overview', 'Human Resources', 'Operating', 'Finance', 'Business', 'Marketing', 'Administrasi']
+    if (user.role === 'BOE' || user.department === 'Executive' || user.role === 'Secretary') {
+        return ['Overview', 'Human Resources', 'Operating', 'Finance', 'Business', 'Marketing & Branding', 'Public Relation', 'Administrasi']
+    }
 
     const sections: string[] = ['Overview'] // Everyone sees overview
 
-    // C Level / Secretary / Staff see their department + some cross-department
+    // Map department to section
     const deptSectionMap: Record<string, string> = {
         'Human Resource': 'Human Resources',
         'Operating': 'Operating',
         'Financial': 'Finance',
         'Business': 'Business',
         'Marketing': 'Marketing',
-        'Executive': 'all',
-    }
-
-    if (user.department === 'Executive') {
-        return ['Overview', 'Human Resources', 'Operating', 'Finance', 'Business', 'Marketing', 'Administrasi']
     }
 
     const deptSection = deptSectionMap[user.department]
-    if (deptSection) sections.push(deptSection)
-
-    // Secretary always sees Administrasi
-    if (user.role === 'Secretary') {
-        sections.push('Administrasi')
+    if (deptSection) {
+        if (deptSection === 'Marketing') {
+            const pos = user.position?.toLowerCase() || ''
+            const isManager = user.role === 'C Level' || user.role === 'Secretary' || user.role === 'BOE'
+            
+            if (isManager || pos.includes('marketing & brand')) {
+                sections.push('Marketing & Branding')
+            }
+            if (isManager || pos.includes('public relation')) {
+                sections.push('Public Relation')
+            }
+        } else {
+            sections.push(deptSection)
+        }
     }
 
-    // Administration role sees Administrasi
-    if (user.role === 'Administration') {
-        sections.push('Administrasi')
+    // Roles like Secretary and Administration get access to Administrasi
+    if (user.role === 'Secretary' || user.role === 'Administration' || isAdministration(user)) {
+        if (!sections.includes('Administrasi')) {
+            sections.push('Administrasi')
+        }
     }
 
-    // Staff can see HR (for their own submissions like advocacy, counseling, logbook)
-    if (user.role === 'Staff') {
-        if (!sections.includes('Human Resources')) sections.push('Human Resources')
-        sections.push('Administrasi') // they can submit reviews
-    }
-
-    // C Level sees cross-department for coordination
-    if (user.role === 'C Level') {
-        if (!sections.includes('Administrasi')) sections.push('Administrasi')
-    }
-
-    // Business Partner sees limited Business section
+    // Business Partner only sees Business
     if (user.role === 'Business Partner') {
-        return ['Business', 'Administrasi']
+        return ['Overview', 'Business']
     }
 
     return sections
+}
+
+/**
+ * Check if user is the "Owner" of a specific module (e.g. Finance owns Reimbursement)
+ * or if they are Executive/C-Level/Secretary who has global management access.
+ */
+export function canManageModule(user: CurrentUser | null, moduleName: string): boolean {
+    if (!user) return false
+    
+    // Global managers can manage everything
+    if (user.role === 'BOE' || user.role === 'C Level' || user.role === 'Secretary') {
+        return true
+    }
+
+    // Map modules to their owning departments
+    const MODULE_OWNERS: Record<string, string[]> = {
+        'logbook': ['Human Resource'],
+        'advocacy': ['Human Resource'],
+        'attendance': ['Human Resource'],
+        'reimbursement': ['Financial'],
+        'content': ['Marketing'],
+        'administrasi': ['Secretary', 'Administration'] // handled mostly by roles, but good for completeness
+    }
+
+    const owners = MODULE_OWNERS[moduleName]
+    if (!owners) return false // if module not defined, default to false
+
+    // Administration role might be considered part of the owner for 'administrasi'
+    if (moduleName === 'administrasi' && isAdministration(user)) return true
+
+    return owners.includes(user.department)
 }

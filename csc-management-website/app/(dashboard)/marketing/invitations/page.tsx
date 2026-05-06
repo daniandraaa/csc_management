@@ -82,13 +82,13 @@ export default function InvitationsPage() {
             <div className="page-container">
                 <h1 className="page-title">Status Tamu Undangan</h1>
                 <p className="page-subtitle">Kelola undangan dan PIC yang hadir</p>
-                <div className="toolbar">
+                <div className="toolbar" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
                     <div className="toolbar-left" />
-                    <div className="toolbar-right">
-                        <button className="btn btn-secondary btn-sm" onClick={() => setShowCsvImport(true)}><Upload size={14} /> Import CSV</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => exportToCsv(PDF_COLUMNS, invitations, `CSC_Undangan_${new Date().toISOString().split('T')[0]}.csv`)}><Download size={14} /> CSV</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => exportToPdf({ title: 'Daftar Undangan CSC', subtitle: `Total: ${invitations.length} undangan`, columns: PDF_COLUMNS, data: invitations })}><FileText size={14} /> Export PDF</button>
-                        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ event_name: '', organizer: '', event_date: '', event_location: '', description: '', invitation_status: 'pending', attendance_status: 'pending', notes: '' }); setShowModal(true) }}><Plus size={16} /> Tambah Undangan</button>
+                    <div className="toolbar-right" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <button className="btn btn-secondary btn-sm hidden md:flex" onClick={() => setShowCsvImport(true)}><Upload size={14} /> <span className="hidden lg:inline">Import CSV</span></button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => exportToCsv(PDF_COLUMNS, invitations, `CSC_Undangan_${new Date().toISOString().split('T')[0]}.csv`)}><Download size={14} /> <span className="hidden sm:inline">CSV</span></button>
+                        <button className="btn btn-secondary btn-sm hidden sm:flex" onClick={() => exportToPdf({ title: 'Daftar Undangan CSC', subtitle: `Total: ${invitations.length} undangan`, columns: PDF_COLUMNS, data: invitations })}><FileText size={14} /> <span className="hidden lg:inline">Export PDF</span></button>
+                        <button className="btn btn-primary btn-sm" style={{ padding: '0.5rem 1rem' }} onClick={() => { setEditId(null); setForm({ event_name: '', organizer: '', event_date: '', event_location: '', description: '', invitation_status: 'pending', attendance_status: 'pending', notes: '' }); setShowModal(true) }}><Plus size={16} /> <span className="hidden sm:inline">Tambah Undangan</span><span className="sm:hidden">Tambah</span></button>
                     </div>
                 </div>
 
@@ -121,12 +121,12 @@ export default function InvitationsPage() {
                             <div className="modal-header"><h2>{editId ? 'Edit' : 'Tambah'} Undangan</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)}><X size={18} /></button></div>
                             <form onSubmit={handleSubmit}><div className="modal-body">
                                 <div className="form-group"><label className="form-label">Nama Event *</label><input className="form-input" required value={form.event_name} onChange={e => setForm({ ...form, event_name: e.target.value })} /></div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="form-group"><label className="form-label">Organizer</label><input className="form-input" value={form.organizer} onChange={e => setForm({ ...form, organizer: e.target.value })} /></div>
                                     <div className="form-group"><label className="form-label">Tanggal</label><input className="form-input" type="date" value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} /></div>
                                 </div>
                                 <div className="form-group"><label className="form-label">Lokasi</label><input className="form-input" value={form.event_location} onChange={e => setForm({ ...form, event_location: e.target.value })} /></div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="form-group"><label className="form-label">Status Undangan</label><select className="form-select" value={form.invitation_status} onChange={e => setForm({ ...form, invitation_status: e.target.value })}><option value="pending">Pending</option><option value="accepted">Accepted</option><option value="declined">Declined</option></select></div>
                                     <div className="form-group"><label className="form-label">Status Kehadiran</label><select className="form-select" value={form.attendance_status} onChange={e => setForm({ ...form, attendance_status: e.target.value })}><option value="pending">Pending</option><option value="can_attend">Dapat Hadir</option><option value="cannot_attend">Tidak Hadir</option></select></div>
                                 </div>

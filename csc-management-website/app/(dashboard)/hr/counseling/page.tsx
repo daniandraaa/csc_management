@@ -55,7 +55,7 @@ export default function CounselingPage() {
         await supabase.from('counseling_requests').insert(payload)
     }
 
-    const filtered = requests.filter((r: any) => r.subject?.toLowerCase().includes(search.toLowerCase()) || r.member?.full_name?.toLowerCase().includes(search.toLowerCase()))
+    const filtered = requests.filter((r: any) => r.subject?.toLowerCase().includes(search.toLowerCase()) || (r.member?.full_name?.toLowerCase() || '').includes(search.toLowerCase()))
     const exportData = filtered.map((r: any) => ({ ...r, _member: r.member?.full_name || '-', _counselor: r.counselor?.full_name || '-' }))
 
     return (
@@ -111,7 +111,7 @@ export default function CounselingPage() {
                             <div className="modal-header"><h2>{editId ? 'Edit Konseling' : 'Request Konseling'}</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)}><X size={18} /></button></div>
                             <form onSubmit={handleSubmit}>
                                 <div className="modal-body">
-                                    <div className="form-group"><label className="form-label">Anggota *</label><select className="form-select" required value={form.member_id} onChange={e => setForm({ ...form, member_id: e.target.value })}><option value="">Pilih</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
+                                    <div className="form-group"><label className="form-label">Anggota {editId ? '' : '*'}</label><select className="form-select" required={!editId} value={form.member_id} onChange={e => setForm({ ...form, member_id: e.target.value })}><option value="">{editId ? 'Anonim (Tetap Anonim)' : 'Pilih'}</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
                                     <div className="form-group"><label className="form-label">Subjek *</label><input className="form-input" required value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
                                     <div className="form-group"><label className="form-label">Deskripsi</label><textarea className="form-textarea" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>

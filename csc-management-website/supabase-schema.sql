@@ -58,7 +58,7 @@ CREATE TABLE performance_rankings (
   score DECIMAL(5,2) NOT NULL DEFAULT 0,
   rank INTEGER,
   notes TEXT,
-  evaluated_by UUID REFERENCES members(id),
+  evaluated_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -72,7 +72,7 @@ CREATE TABLE advocacy_aspirations (
   category TEXT NOT NULL CHECK (category IN ('advocacy', 'aspiration')),
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_review', 'approved', 'rejected', 'resolved')),
   response TEXT,
-  responded_by UUID REFERENCES members(id),
+  responded_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -88,7 +88,7 @@ CREATE TABLE counseling_requests (
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'scheduled', 'completed', 'cancelled')),
   scheduled_date DATE,
   scheduled_time TIME,
-  counselor_id UUID REFERENCES members(id),
+  counselor_id UUID REFERENCES members(id) ON DELETE SET NULL,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -118,7 +118,7 @@ CREATE TABLE events (
   end_time TIME,
   location TEXT,
   type TEXT DEFAULT 'general' CHECK (type IN ('general', 'meeting', 'training', 'social', 'other')),
-  created_by UUID REFERENCES members(id),
+  created_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -149,8 +149,8 @@ CREATE TABLE programs (
   status TEXT DEFAULT 'planned' CHECK (status IN ('planned', 'in_progress', 'completed', 'cancelled')),
   budget DECIMAL(15,2) DEFAULT 0,
   department_id UUID REFERENCES departments(id),
-  pic_id UUID REFERENCES members(id),
-  created_by UUID REFERENCES members(id),
+  pic_id UUID REFERENCES members(id) ON DELETE SET NULL,
+  created_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -179,7 +179,7 @@ CREATE TABLE program_evaluations (
   weaknesses TEXT,
   recommendations TEXT,
   overall_score DECIMAL(5,2),
-  evaluated_by UUID REFERENCES members(id),
+  evaluated_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -203,8 +203,8 @@ CREATE TABLE sop_guides (
   content TEXT NOT NULL,
   version TEXT DEFAULT '1.0',
   is_active BOOLEAN DEFAULT true,
-  created_by UUID REFERENCES members(id),
-  updated_by UUID REFERENCES members(id),
+  created_by UUID REFERENCES members(id) ON DELETE SET NULL,
+  updated_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -223,7 +223,7 @@ CREATE TABLE reimbursements (
   amount DECIMAL(15,2) NOT NULL,
   receipt_url TEXT,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'paid')),
-  approved_by UUID REFERENCES members(id),
+  approved_by UUID REFERENCES members(id) ON DELETE SET NULL,
   approved_at TIMESTAMPTZ,
   paid_at TIMESTAMPTZ,
   notes TEXT,
@@ -241,7 +241,7 @@ CREATE TABLE financial_transactions (
   amount DECIMAL(15,2) NOT NULL,
   transaction_date DATE DEFAULT CURRENT_DATE,
   receipt_url TEXT,
-  recorded_by UUID REFERENCES members(id),
+  recorded_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -264,7 +264,7 @@ CREATE TABLE business_partners (
   start_date DATE,
   end_date DATE,
   notes TEXT,
-  created_by UUID REFERENCES members(id),
+  created_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -283,10 +283,10 @@ CREATE TABLE content_plans (
   scheduled_date DATE,
   scheduled_time TIME,
   status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'in_review', 'approved', 'published', 'cancelled')),
-  assigned_to UUID REFERENCES members(id),
+  assigned_to UUID REFERENCES members(id) ON DELETE SET NULL,
   content_url TEXT,
   notes TEXT,
-  created_by UUID REFERENCES members(id),
+  created_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -302,7 +302,7 @@ CREATE TABLE media_partners (
   social_media TEXT,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   notes TEXT,
-  created_by UUID REFERENCES members(id),
+  created_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -317,7 +317,7 @@ CREATE TABLE incoming_mails (
   mail_type TEXT DEFAULT 'general' CHECK (mail_type IN ('general', 'invitation', 'proposal', 'official', 'other')),
   file_url TEXT,
   status TEXT DEFAULT 'unread' CHECK (status IN ('unread', 'read', 'responded', 'archived')),
-  handled_by UUID REFERENCES members(id),
+  handled_by UUID REFERENCES members(id) ON DELETE SET NULL,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -334,7 +334,7 @@ CREATE TABLE guest_invitations (
   invitation_status TEXT DEFAULT 'pending' CHECK (invitation_status IN ('pending', 'accepted', 'declined')),
   attendance_status TEXT DEFAULT 'pending' CHECK (attendance_status IN ('pending', 'can_attend', 'cannot_attend')),
   notes TEXT,
-  created_by UUID REFERENCES members(id),
+  created_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -365,8 +365,8 @@ CREATE TABLE documents (
   recipient TEXT,
   document_date DATE DEFAULT CURRENT_DATE,
   status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'received', 'archived')),
-  handled_by UUID REFERENCES members(id),
-  created_by UUID REFERENCES members(id),
+  handled_by UUID REFERENCES members(id) ON DELETE SET NULL,
+  created_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -376,17 +376,18 @@ CREATE TABLE admin_reviews (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   title TEXT NOT NULL,
   description TEXT,
+  document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
   submitted_by UUID REFERENCES members(id) ON DELETE CASCADE NOT NULL,
   file_url TEXT,
   link_url TEXT,
   -- Secretary review
   secretary_status TEXT DEFAULT 'pending' CHECK (secretary_status IN ('pending', 'approved', 'revision_needed', 'rejected')),
-  secretary_reviewed_by UUID REFERENCES members(id),
+  secretary_reviewed_by UUID REFERENCES members(id) ON DELETE SET NULL,
   secretary_reviewed_at TIMESTAMPTZ,
   secretary_notes TEXT,
   -- Administration review
   admin_status TEXT DEFAULT 'pending' CHECK (admin_status IN ('pending', 'approved', 'revision_needed', 'rejected')),
-  admin_reviewed_by UUID REFERENCES members(id),
+  admin_reviewed_by UUID REFERENCES members(id) ON DELETE SET NULL,
   admin_reviewed_at TIMESTAMPTZ,
   admin_notes TEXT,
   -- Change description
@@ -409,7 +410,7 @@ CREATE TABLE timeline_entries (
   attendees_text TEXT,
   decisions TEXT,
   notes TEXT,
-  created_by UUID REFERENCES members(id),
+  created_by UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -473,6 +474,7 @@ CREATE POLICY "Authenticated users can read all" ON timeline_entries FOR SELECT 
 -- Allow all authenticated users to insert/update/delete (internal tool, role enforcement in app)
 CREATE POLICY "Authenticated users can insert" ON members FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "Authenticated users can update" ON members FOR UPDATE TO authenticated USING (true);
+CREATE POLICY "Authenticated users can delete" ON members FOR DELETE TO authenticated USING (true);
 CREATE POLICY "Authenticated users can insert" ON performance_rankings FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "Authenticated users can update" ON performance_rankings FOR UPDATE TO authenticated USING (true);
 CREATE POLICY "Authenticated users can delete" ON performance_rankings FOR DELETE TO authenticated USING (true);

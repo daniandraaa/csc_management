@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/lib/auth'
+import { canManageModule } from '@/lib/rbac'
 import { formatDateShort } from '@/lib/utils'
 import { BookOpen, Plus, X, Search } from 'lucide-react'
 
@@ -18,7 +19,7 @@ export default function OverviewLogbookPage() {
     const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], title: '', description: '', category: '', hours_spent: '' })
     const [editId, setEditId] = useState<string | null>(null)
 
-    const isHR = currentUser?.department === 'Human Resource' || currentUser?.role === 'BOE'
+    const canManage = canManageModule(currentUser, 'logbook')
 
     useEffect(() => { if (currentUser) loadData() }, [currentUser, viewAll, selectedMember])
 
@@ -26,7 +27,7 @@ export default function OverviewLogbookPage() {
         setLoading(true)
         let query = supabase.from('logbook_entries').select('*, member:members(id,full_name,department)').order('date', { ascending: false })
 
-        if (viewAll && isHR) {
+        if (viewAll && canManage) {
             if (selectedMember) query = query.eq('member_id', selectedMember)
         } else {
             query = query.eq('member_id', currentUser?.id)
@@ -35,7 +36,7 @@ export default function OverviewLogbookPage() {
         const { data } = await query
         setEntries(data || [])
 
-        if (isHR && members.length === 0) {
+        if (canManage && members.length === 0) {
             const { data: m } = await supabase.from('members').select('id,full_name').order('full_name')
             setMembers(m || [])
         }
@@ -77,10 +78,10 @@ export default function OverviewLogbookPage() {
             <div className="topbar"><div className="topbar-title">Logbook</div></div>
             <div className="page-container">
                 <h1 className="page-title">Logbook Kegiatan</h1>
-                <p className="page-subtitle">{viewAll && isHR ? 'Semua logbook anggota' : 'Catatan kegiatan harian Anda'}</p>
+                <p className="page-subtitle">{viewAll && canManage ? 'Semua logbook anggota' : 'Catatan kegiatan harian Anda'}</p>
 
                 {/* Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="stats-grid">
                     <div className="card" style={{ textAlign: 'center', padding: '1rem' }}>
                         <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-brand-500)' }}>{totalEntries}</div>
                         <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>Total Entri</div>
@@ -101,18 +102,18 @@ export default function OverviewLogbookPage() {
                             <Search size={16} />
                             <input className="form-input" placeholder="Cari logbook..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: '2.25rem' }} />
                         </div>
-                        {isHR && (
-                            <>
-                                <button className={`btn ${viewAll ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setViewAll(!viewAll)}>
-                                    {viewAll ? 'Semua Logbook' : 'Logbook Saya'}
+                        {canManage && (
+                            <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                                <button className={`btn ${viewAll ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setViewAll(!viewAll)} style={{ flex: 1 }}>
+                                    {viewAll ? 'Semua' : 'Saya'}
                                 </button>
                                 {viewAll && (
-                                    <select className="form-select" style={{ width: 'auto' }} value={selectedMember} onChange={e => setSelectedMember(e.target.value)}>
+                                    <select className="form-select" style={{ width: 'auto', flex: 2 }} value={selectedMember} onChange={e => setSelectedMember(e.target.value)}>
                                         <option value="">Semua Anggota</option>
                                         {members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
                                     </select>
                                 )}
-                            </>
+                            </div>
                         )}
                     </div>
                     <div className="toolbar-right">
@@ -123,33 +124,35 @@ export default function OverviewLogbookPage() {
                 </div>
 
                 <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <table className="data-table">
-                        <thead><tr><th>Tanggal</th>{viewAll && isHR && <th>Anggota</th>}<th>Judul</th><th>Deskripsi</th><th>Kategori</th><th>Jam</th><th>Aksi</th></tr></thead>
-                        <tbody>
-                            {loading ? (
-                                <tr><td colSpan={viewAll ? 7 : 6} style={{ textAlign: 'center', padding: '3rem' }}>Memuat...</td></tr>
-                            ) : filtered.length === 0 ? (
-                                <tr><td colSpan={viewAll ? 7 : 6}><div className="empty-state"><BookOpen size={48} /><h3>Belum ada logbook</h3><p>Mulai catat kegiatan harian Anda.</p></div></td></tr>
-                            ) : filtered.map((e: any) => (
-                                <tr key={e.id}>
-                                    <td style={{ whiteSpace: 'nowrap' }}>{formatDateShort(e.date)}</td>
-                                    {viewAll && isHR && <td style={{ fontWeight: 500 }}>{e.member?.full_name || '-'}</td>}
-                                    <td style={{ fontWeight: 500 }}>{e.title}</td>
-                                    <td style={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{e.description}</td>
-                                    <td>{e.category ? <span className="badge badge-info">{e.category}</span> : '-'}</td>
-                                    <td style={{ fontWeight: 600 }}>{e.hours_spent ? `${e.hours_spent}h` : '-'}</td>
-                                    <td>
-                                        {e.member_id === currentUser?.id && (
-                                            <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                                <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ date: e.date, title: e.title, description: e.description, category: e.category || '', hours_spent: e.hours_spent?.toString() || '' }); setEditId(e.id); setShowModal(true) }}>Edit</button>
-                                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(e.id)}>Hapus</button>
-                                            </div>
+                    <div className="data-table-container">
+                        <table className="data-table">
+                            <thead><tr><th>Tanggal</th>{viewAll && canManage && <th>Anggota</th>}<th>Judul</th><th>Deskripsi</th><th>Kategori</th><th>Jam</th>{canManage && <th>Aksi</th>}</tr></thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr><td colSpan={viewAll ? 7 : 6} style={{ textAlign: 'center', padding: '3rem' }}>Memuat...</td></tr>
+                                ) : filtered.length === 0 ? (
+                                    <tr><td colSpan={viewAll ? 7 : 6}><div className="empty-state"><BookOpen size={48} /><h3>Belum ada logbook</h3><p>Mulai catat kegiatan harian Anda.</p></div></td></tr>
+                                ) : filtered.map((e: any) => (
+                                    <tr key={e.id}>
+                                        <td style={{ whiteSpace: 'nowrap' }}>{formatDateShort(e.date)}</td>
+                                        {viewAll && canManage && <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{e.member?.full_name || '-'}</td>}
+                                        <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{e.title}</td>
+                                        <td style={{ minWidth: 200, fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{e.description}</td>
+                                        <td>{e.category ? <span className="badge badge-info">{e.category}</span> : '-'}</td>
+                                        <td style={{ fontWeight: 600 }}>{e.hours_spent ? `${e.hours_spent}h` : '-'}</td>
+                                        {canManage && (
+                                            <td>
+                                                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ date: e.date, title: e.title, description: e.description, category: e.category || '', hours_spent: e.hours_spent?.toString() || '' }); setEditId(e.id); setShowModal(true) }}>Edit</button>
+                                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(e.id)}>Hapus</button>
+                                                </div>
+                                            </td>
                                         )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 {showModal && (

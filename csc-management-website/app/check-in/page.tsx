@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDateShort } from '@/lib/utils'
-import { CheckCircle2, CalendarCheck, MapPin, Clock } from 'lucide-react'
+import { CheckCircle2, CalendarCheck } from 'lucide-react'
 
 export default function CheckInPage() {
     const [events, setEvents] = useState<any[]>([])
@@ -19,17 +19,11 @@ export default function CheckInPage() {
             // Load upcoming or recent events
             const today = new Date().toISOString().split('T')[0]
             const { data: ev } = await supabase
-                .from('events')
+                .from('attendance_sessions')
                 .select('*')
                 .gte('event_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
                 .order('event_date', { ascending: true })
-            const { data: m } = await supabase
-                .from('members')
-                .select('id, full_name, department, role')
-                .neq('role', 'Business Partner')
-                .order('full_name')
             setEvents(ev || [])
-            setMembers(m || [])
             setLoading(false)
 
             // Check URL params for event pre-selection
@@ -41,12 +35,31 @@ export default function CheckInPage() {
     }, [])
 
     useEffect(() => {
-        if (selectedEvent) {
-            const ev = events.find(e => e.id === selectedEvent)
-            setEventDetail(ev || null)
-        } else {
-            setEventDetail(null)
+        async function fetchAssignedMembers() {
+            if (selectedEvent) {
+                const ev = events.find(e => e.id === selectedEvent)
+                setEventDetail(ev || null)
+                
+                // Fetch members specifically assigned to this event
+                const { data } = await supabase
+                    .from('attendance_session_members')
+                    .select('member:members(id, full_name, department)')
+                    .eq('session_id', selectedEvent)
+                
+                if (data) {
+                    const assigned = data.map((d: any) => d.member).filter(Boolean)
+                    assigned.sort((a: any, b: any) => a.full_name.localeCompare(b.full_name))
+                    setMembers(assigned)
+                } else {
+                    setMembers([])
+                }
+            } else {
+                setEventDetail(null)
+                setMembers([])
+            }
+            setSelectedMember('')
         }
+        fetchAssignedMembers()
     }, [selectedEvent, events])
 
     async function handleCheckIn() {
@@ -55,58 +68,47 @@ export default function CheckInPage() {
 
         // Check if already checked in
         const { data: existing } = await supabase
-            .from('event_attendees')
-            .select('id')
-            .eq('event_id', selectedEvent)
+            .from('attendance_session_members')
+            .select('id, status')
+            .eq('session_id', selectedEvent)
             .eq('member_id', selectedMember)
 
         if (existing && existing.length > 0) {
             // Update status to present
             await supabase
-                .from('event_attendees')
-                .update({ status: 'present', check_in_time: new Date().toISOString() })
-                .eq('event_id', selectedEvent)
-                .eq('member_id', selectedMember)
+                .from('attendance_session_members')
+                .update({ status: 'present', responded_at: new Date().toISOString() })
+                .eq('id', existing[0].id)
             setCheckInStatus('success')
         } else {
-            // Insert new attendance record
-            const { error } = await supabase
-                .from('event_attendees')
-                .insert({
-                    event_id: selectedEvent,
-                    member_id: selectedMember,
-                    status: 'present',
-                    check_in_time: new Date().toISOString(),
-                })
-            if (error) {
-                setCheckInStatus('error')
-            } else {
-                setCheckInStatus('success')
-            }
+            // This case shouldn't happen anymore since they must be assigned, but handle error just in case
+            setCheckInStatus('error')
         }
     }
 
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%)',
+            background: 'linear-gradient(135deg, #FFFCF8 0%, #F5EEDC 50%, #EFE5D1 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '2rem',
             fontFamily: 'Inter, system-ui, sans-serif',
         }}>
-            <div style={{ position: 'fixed', inset: 0, opacity: 0.05, backgroundImage: 'radial-gradient(circle at 25px 25px, white 2%, transparent 0%)', backgroundSize: '100px 100px' }} />
+            <div style={{ position: 'fixed', inset: 0, opacity: 0.2, backgroundImage: 'radial-gradient(circle at 25px 25px, #9A3412 1px, transparent 0%)', backgroundSize: '60px 60px' }} />
 
             <div style={{ position: 'relative', width: '100%', maxWidth: 480 }}>
                 {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                     <div style={{
                         width: 72, height: 72, borderRadius: 20,
-                        background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
+                        background: 'white', 
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         marginBottom: '1rem',
-                    }}><CalendarCheck size={36} color="white" /></div>
-                    <h1 style={{ color: 'white', fontSize: '1.75rem', fontWeight: 700 }}>Check-In Kehadiran</h1>
-                    <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem' }}>CSC Telkom University</p>
+                        boxShadow: '0 10px 25px -5px rgba(154, 52, 18, 0.15)',
+                        border: '1px solid #F5EEDC',
+                    }}><CalendarCheck size={36} color="#9A3412" /></div>
+                    <h1 style={{ color: '#431407', fontSize: '1.75rem', fontWeight: 800 }}>Check-In Kehadiran</h1>
+                    <p style={{ color: '#78350f', fontSize: '0.875rem' }}>CSC Telkom University</p>
                 </div>
 
                 {/* Card */}
@@ -176,8 +178,7 @@ export default function CheckInPage() {
                                             <div style={{ fontWeight: 600, color: '#15803d', marginBottom: 4 }}>{eventDetail.title}</div>
                                             <div style={{ display: 'flex', gap: '0.75rem', color: '#475569', flexWrap: 'wrap' }}>
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><CalendarCheck size={12} /> {formatDateShort(eventDetail.event_date)}</span>
-                                                {eventDetail.start_time && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Clock size={12} /> {eventDetail.start_time.slice(0, 5)}</span>}
-                                                {eventDetail.location && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><MapPin size={12} /> {eventDetail.location}</span>}
+                                                {eventDetail.description && <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>{eventDetail.description}</span>}
                                             </div>
                                         </div>
                                     )}
@@ -220,11 +221,11 @@ export default function CheckInPage() {
                                         style={{
                                             width: '100%', padding: '0.875rem', borderRadius: 12,
                                             border: 'none',
-                                            background: selectedEvent && selectedMember ? 'linear-gradient(135deg, #059669, #047857)' : '#e2e8f0',
+                                            background: selectedEvent && selectedMember ? 'linear-gradient(135deg, #9A3412, #7C2D12)' : '#e2e8f0',
                                             color: selectedEvent && selectedMember ? 'white' : '#94a3b8',
                                             fontSize: '1rem', fontWeight: 600,
                                             cursor: selectedEvent && selectedMember ? 'pointer' : 'not-allowed',
-                                            boxShadow: selectedEvent && selectedMember ? '0 4px 12px rgba(5, 150, 105, 0.3)' : 'none',
+                                            boxShadow: selectedEvent && selectedMember ? '0 4px 12px rgba(154, 52, 18, 0.3)' : 'none',
                                         }}
                                     >
                                         ✋ Check-In Sekarang
@@ -235,7 +236,7 @@ export default function CheckInPage() {
                     )}
                 </div>
 
-                <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginTop: '1.5rem' }}>
+                <p style={{ textAlign: 'center', color: '#78350f', opacity: 0.5, fontSize: '0.75rem', marginTop: '1.5rem' }}>
                     CSC Management System • Absensi Digital
                 </p>
             </div>

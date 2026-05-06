@@ -86,13 +86,24 @@ export default function MembersPage() {
     }
 
     async function handleDelete(id: string) {
-        if (confirm('Hapus anggota?')) { await supabase.from('members').delete().eq('id', id); loadData() }
+        if (confirm('Hapus anggota?')) {
+            const { error } = await supabase.from('members').delete().eq('id', id)
+            if (error) {
+                alert("Gagal menghapus anggota: " + error.message + "\n\nKemungkinan masih ada data lain yang terikat dengan anggota ini (sebagai PIC Proker, Pengelola Surat, dll).")
+            } else {
+                loadData()
+            }
+        }
     }
 
     async function handleResetPassword(id: string, name: string) {
         if (confirm(`Reset password untuk ${name}?\n\nPassword akan dihapus dan user wajib set password baru saat login berikutnya.`)) {
-            await supabase.from('members').update({ password_hash: null, has_set_password: false }).eq('id', id)
-            alert(`Password ${name} berhasil direset. User akan diminta set password baru saat login.`)
+            const { error } = await supabase.from('members').update({ password_hash: null, has_set_password: false }).eq('id', id)
+            if (error) {
+                alert("Gagal reset password: " + error.message)
+            } else {
+                alert(`Password ${name} berhasil direset. User akan diminta set password baru saat login.`)
+            }
         }
     }
 
@@ -165,10 +176,11 @@ export default function MembersPage() {
                 </div>
 
                 <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <table className="data-table">
-                        <thead>
-                            <tr><th>Anggota</th><th>NIM</th><th>Bidang</th><th>Role</th><th>Jabatan</th><th>Kontak</th><th>Aksi</th></tr>
-                        </thead>
+                    <div className="data-table-container">
+                        <table className="data-table">
+                            <thead>
+                                <tr><th>Anggota</th><th>NIM</th><th>Bidang</th><th>Role</th><th>Jabatan</th><th>Kontak</th><th>Aksi</th></tr>
+                            </thead>
                         <tbody>
                             {loading ? <tr><td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>Memuat...</td></tr> :
                                 filtered.length === 0 ? <tr><td colSpan={7}><div className="empty-state"><Users size={48} /><h3>Belum ada anggota</h3><p>Tambahkan anggota baru ke direktori CSC.</p></div></td></tr> :
@@ -176,38 +188,39 @@ export default function MembersPage() {
                                         const rc = roleColors[m.role] || { bg: '#f1f5f9', text: '#475569' }
                                         return (
                                             <tr key={m.id}>
-                                                <td>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                        <div className="avatar">{getInitials(m.full_name)}</div>
-                                                        <div>
-                                                            <div style={{ fontWeight: 600 }}>{m.full_name}</div>
-                                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>{m.email}</div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td style={{ fontFamily: 'monospace', fontSize: '0.8125rem', fontWeight: 500 }}>{m.nim || '-'}</td>
-                                                <td>
-                                                    {m.department && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8125rem' }}>
-                                                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: deptColors[m.department] || '#94a3b8' }} />
-                                                        {m.department}
-                                                    </span>}
-                                                </td>
-                                                <td><span className="badge" style={{ background: rc.bg, color: rc.text }}>{m.role || '-'}</span></td>
-                                                <td style={{ fontSize: '0.8125rem' }}>{m.position || '-'}</td>
-                                                <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{m.phone || '-'}</td>
-                                                <td>
-                                                    <div style={{ display: 'flex', gap: 4 }}>
-                                                        {canCreate && <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ full_name: m.full_name, nim: m.nim || '', email: m.email || '', phone: m.phone || '', department: m.department || '', role: m.role || '', position: m.position || '' }); setEditId(m.id); setShowModal(true) }}>Edit</button>}
-                                                        {canResetPassword && <button className="btn btn-ghost btn-sm" style={{ color: '#6d28d9' }} onClick={() => handleResetPassword(m.id, m.full_name)} title="Reset password"><KeyRound size={13} /></button>}
-                                                        {canDeleteMember && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(m.id)}>Hapus</button>}
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                                 <td data-label="Anggota">
+                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                         <div className="avatar">{getInitials(m.full_name)}</div>
+                                                         <div>
+                                                             <div style={{ fontWeight: 600 }}>{m.full_name}</div>
+                                                             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>{m.email}</div>
+                                                         </div>
+                                                     </div>
+                                                 </td>
+                                                 <td data-label="NIM" style={{ fontFamily: 'monospace', fontSize: '0.8125rem', fontWeight: 500 }}>{m.nim || '-'}</td>
+                                                 <td data-label="Bidang">
+                                                     {m.department && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8125rem' }}>
+                                                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: deptColors[m.department] || '#94a3b8' }} />
+                                                         {m.department}
+                                                     </span>}
+                                                 </td>
+                                                 <td data-label="Role"><span className="badge" style={{ background: rc.bg, color: rc.text }}>{m.role || '-'}</span></td>
+                                                 <td data-label="Jabatan" style={{ fontSize: '0.8125rem' }}>{m.position || '-'}</td>
+                                                 <td data-label="Kontak" style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{m.phone || '-'}</td>
+                                                 <td>
+                                                     <div style={{ display: 'flex', gap: 4 }}>
+                                                         {canCreate && <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ full_name: m.full_name, nim: m.nim || '', email: m.email || '', phone: m.phone || '', department: m.department || '', role: m.role || '', position: m.position || '' }); setEditId(m.id); setShowModal(true) }}>Edit</button>}
+                                                         {canResetPassword && <button className="btn btn-ghost btn-sm" style={{ color: '#6d28d9' }} onClick={() => handleResetPassword(m.id, m.full_name)} title="Reset password"><KeyRound size={13} /></button>}
+                                                         {canDeleteMember && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(m.id)}>Hapus</button>}
+                                                     </div>
+                                                 </td>
+                                             </tr>
                                         )
                                     })}
                         </tbody>
                     </table>
                 </div>
+            </div>
 
                 {/* Add/Edit Modal */}
                 {showModal && (

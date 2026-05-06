@@ -12,7 +12,7 @@ interface ExportPdfOptions {
     orientation?: 'portrait' | 'landscape'
 }
 
-export function exportToPdf({ title, subtitle, columns, data, filename, orientation = 'portrait' }: ExportPdfOptions) {
+export async function exportToPdf({ title, subtitle, columns, data, filename, orientation = 'portrait' }: ExportPdfOptions) {
     const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' })
     const pageWidth = doc.internal.pageSize.getWidth()
     const margin = 15
@@ -23,13 +23,20 @@ export function exportToPdf({ title, subtitle, columns, data, filename, orientat
     doc.rect(0, 0, pageWidth, 3, 'F')
 
     // Logo area
-    doc.setFillColor(153, 27, 27) // #991b1b
-    doc.roundedRect(margin, 10, 12, 12, 2, 2, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(7)
-    doc.setFont('helvetica', 'bold')
-    doc.text('CSC', margin + 6, 17.5, { align: 'center' })
+    // 1. Buat objek Image dari browser
+    const logoImg = new Image();
+    logoImg.src = '/logo.png'; // Mengarah ke folder public Next.js
 
+    // 2. Tunggu sampai gambar selesai dimuat dengan Promise
+    await new Promise((resolve, reject) => {
+    logoImg.onload = resolve;
+    logoImg.onerror = reject;
+    });
+
+// 3. Masukkan gambar ke dalam dokumen PDF
+// Format: doc.addImage(image_element, format, x, y, width, height)
+// Posisi (margin, 10) dan ukuran (12x12) disamakan dengan bentuk kotak sebelumnya
+doc.addImage(logoImg, 'PNG', margin, 10, 12, 12);
     // Organization name
     doc.setTextColor(153, 27, 27)
     doc.setFontSize(14)

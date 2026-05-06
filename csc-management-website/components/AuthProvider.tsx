@@ -17,7 +17,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     }, [])
 
     useEffect(() => {
-        if (!loading && !currentUser && pathname !== '/login' && pathname !== '/check-in') {
+        if (!loading && !currentUser && pathname !== '/login' && pathname !== '/check-in' && pathname !== '/track') {
             router.push('/login')
         }
     }, [loading, currentUser, pathname, router])
@@ -44,13 +44,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
                 fontFamily: 'Inter, system-ui, sans-serif'
             }}>
                 <div style={{ textAlign: 'center' }}>
-                    <div style={{
-                        width: 48, height: 48, borderRadius: 12,
-                        background: 'linear-gradient(135deg, #dc2626, #991b1b)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'white', fontWeight: 700, fontSize: 18,
+                    <img src="/logo.png" alt="CSC Logo" style={{
+                        width: 48, height: 48, objectFit: 'contain',
                         margin: '0 auto 1rem',
-                    }}>CSC</div>
+                    }} />
                     <p style={{ color: '#64748b', fontSize: 14 }}>Loading...</p>
                 </div>
             </div>

@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useCurrentUser } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
 import { getStatusColor, getStatusLabel, formatDateShort, formatCurrency } from '@/lib/utils'
-import { FolderKanban, Plus, X, Search, Eye, Upload, Download, FileText } from 'lucide-react'
+import { FolderKanban, Plus, X, Search, Eye, Upload, Download, FileText, CalendarDays } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
 import { exportToPdf, exportToCsv } from '@/lib/export'
 
 export default function ProgramsPage() {
+    const router = useRouter()
     const [programs, setPrograms] = useState<any[]>([])
     const [members, setMembers] = useState<any[]>([])
     const [departments, setDepartments] = useState<any[]>([])
@@ -68,17 +71,17 @@ export default function ProgramsPage() {
                 <h1 className="page-title">Program Kerja (Proker)</h1>
                 <p className="page-subtitle">CRUD program kerja lengkap beserta mitra</p>
 
-                <div className="toolbar">
-                    <div className="toolbar-left"><div className="search-input"><Search /><input className="form-input" placeholder="Cari proker..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: '2.25rem' }} /></div></div>
-                    <div className="toolbar-right">
-                        <button className="btn btn-secondary btn-sm" onClick={() => setShowCsvImport(true)}><Upload size={14} /> Import CSV</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => exportToCsv(progPdfCols, progData, `CSC_Programs_${new Date().toISOString().split('T')[0]}.csv`)}><Download size={14} /> CSV</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => exportToPdf({ title: 'Daftar Program Kerja CSC', subtitle: `Total: ${progData.length} program`, columns: progPdfCols, data: progData })}><FileText size={14} /> Export PDF</button>
-                        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ name: '', description: '', objectives: '', start_date: '', end_date: '', status: 'planned', budget: '', department_id: '', pic_id: '' }); setShowModal(true) }}><Plus size={16} /> Tambah Proker</button>
+                <div className="toolbar" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div className="toolbar-left" style={{ flex: '1 1 300px' }}><div className="search-input"><Search /><input className="form-input" placeholder="Cari proker..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: '2.25rem' }} /></div></div>
+                    <div className="toolbar-right" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <button className="btn btn-secondary btn-sm hidden md:flex" onClick={() => setShowCsvImport(true)}><Upload size={14} /> <span className="hidden lg:inline">Import CSV</span></button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => exportToCsv(progPdfCols, progData, `CSC_Programs_${new Date().toISOString().split('T')[0]}.csv`)}><Download size={14} /> <span className="hidden sm:inline">CSV</span></button>
+                        <button className="btn btn-secondary btn-sm hidden sm:flex" onClick={() => exportToPdf({ title: 'Daftar Program Kerja CSC', subtitle: `Total: ${progData.length} program`, columns: progPdfCols, data: progData })}><FileText size={14} /> <span className="hidden lg:inline">Export PDF</span></button>
+                        <button className="btn btn-primary btn-sm" style={{ padding: '0.5rem 1rem' }} onClick={() => { setEditId(null); setForm({ name: '', description: '', objectives: '', start_date: '', end_date: '', status: 'planned', budget: '', department_id: '', pic_id: '' }); setShowModal(true) }}><Plus size={16} /> <span className="hidden sm:inline">Tambah Proker</span><span className="sm:hidden">Tambah</span></button>
                     </div>
                 </div>
 
-                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <div className="data-table-container">
                     <table className="data-table">
                         <thead><tr><th>Nama</th><th>Bidang</th><th>PIC</th><th>Budget</th><th>Periode</th><th>Status</th><th>Aksi</th></tr></thead>
                         <tbody>
@@ -94,7 +97,8 @@ export default function ProgramsPage() {
                                             <td><span className={`badge badge-${getStatusColor(p.status)}`}>{getStatusLabel(p.status)}</span></td>
                                             <td>
                                                 <div style={{ display: 'flex', gap: 4 }}>
-                                                    <button className="btn btn-ghost btn-sm" onClick={() => viewDetail(p)}><Eye size={14} /></button>
+                                                    <button className="btn btn-ghost btn-sm" title="Lihat Detail" onClick={() => viewDetail(p)}><Eye size={14} /></button>
+                                                    {p.start_date && <button className="btn btn-ghost btn-sm" title="Lihat di Timeline" style={{ color: '#0ea5e9' }} onClick={() => router.push(`/timeline?date=${p.start_date}`)}><CalendarDays size={14} /></button>}
                                                     <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ name: p.name, description: p.description || '', objectives: p.objectives || '', start_date: p.start_date || '', end_date: p.end_date || '', status: p.status, budget: p.budget?.toString() || '', department_id: p.department_id || '', pic_id: p.pic_id || '' }); setEditId(p.id); setShowModal(true) }}>Edit</button>
                                                     <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(p.id)}>Hapus</button>
                                                 </div>
@@ -115,15 +119,15 @@ export default function ProgramsPage() {
                                     <div className="form-group"><label className="form-label">Nama *</label><input className="form-input" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
                                     <div className="form-group"><label className="form-label">Deskripsi</label><textarea className="form-textarea" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
                                     <div className="form-group"><label className="form-label">Objectives</label><textarea className="form-textarea" value={form.objectives} onChange={e => setForm({ ...form, objectives: e.target.value })} /></div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="form-group"><label className="form-label">Mulai</label><input className="form-input" type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} /></div>
                                         <div className="form-group"><label className="form-label">Selesai</label><input className="form-input" type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} /></div>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="form-group"><label className="form-label">Bidang</label><select className="form-select" value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}><option value="">Pilih</option>{departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
                                         <div className="form-group"><label className="form-label">PIC</label><select className="form-select" value={form.pic_id} onChange={e => setForm({ ...form, pic_id: e.target.value })}><option value="">Pilih</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="form-group"><label className="form-label">Budget</label><input className="form-input" type="number" value={form.budget} onChange={e => setForm({ ...form, budget: e.target.value })} /></div>
                                         <div className="form-group"><label className="form-label">Status</label><select className="form-select" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="planned">Planned</option><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
                                     </div>

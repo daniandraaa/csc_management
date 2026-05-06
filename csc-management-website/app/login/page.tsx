@@ -38,47 +38,100 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false)
     const [showNewPassword, setShowNewPassword] = useState(false)
     const [error, setError] = useState('')
+    const [mounted, setMounted] = useState(false)
     const { login } = useCurrentUser()
+
+    // Prevent hydration mismatch - only render after client mount
+    useEffect(() => { setMounted(true) }, [])
+
+    const [passwordColumnsExist, setPasswordColumnsExist] = useState(true)
 
     useEffect(() => {
         async function loadMembers() {
-            // Try with has_set_password column first
-            let { data, error } = await supabase
-                .from('members')
-                .select('id, full_name, role, department, position, email, has_set_password, password_hash')
-                .order('department')
-                .order('role')
-                .order('full_name')
-
-            // If columns don't exist yet (schema not updated), fallback without them
-            if (error) {
-                const res = await supabase
+            try {
+                // First, always load basic member data (this always works)
+                const { data: basicData, error: basicError } = await supabase
                     .from('members')
                     .select('id, full_name, role, department, position, email')
                     .order('department')
                     .order('role')
                     .order('full_name')
-                data = (res.data || []).map(m => ({ ...m, has_set_password: false, password_hash: null }))
+
+                if (basicError || !basicData) {
+                    console.error('Failed to load members:', basicError?.message)
+                    setMembers([])
+                    setLoading(false)
+                    return
+                }
+
+                // Then try to fetch password columns separately
+                const { data: pwData, error: pwError } = await supabase
+                    .from('members')
+                    .select('id, has_set_password, password_hash')
+
+                if (pwError || !pwData) {
+                    // Password columns don't exist yet - use basic data without password info
+                    setPasswordColumnsExist(false)
+                    setMembers(basicData.map(m => ({ ...m, has_set_password: false, password_hash: null })))
+                } else {
+                    // Merge password data into basic data
+                    setPasswordColumnsExist(true)
+                    const pwMap = new Map(pwData.map(p => [p.id, p]))
+                    setMembers(basicData.map(m => {
+                        const pw = pwMap.get(m.id)
+                        return { ...m, has_set_password: pw?.has_set_password ?? false, password_hash: pw?.password_hash ?? null }
+                    }))
+                }
+                setLoading(false)
+            } catch (err) {
+                console.error('Unexpected error in loadMembers:', err)
+                setMembers([])
+                setLoading(false)
             }
-            setMembers(data || [])
-            setLoading(false)
         }
         loadMembers()
     }, [])
 
-    function handleSelectAccount() {
+    async function handleSelectAccount() {
         if (!selectedId) return
         setError('')
         setPassword('')
         setNewPassword('')
         setConfirmPassword('')
-        const member = members.find(m => m.id === selectedId)
-        if (!member) return
-        // If password_hash exists (already has password), go to password entry
-        // Only go to setup if no password_hash AND has_set_password is false
-        if (member.password_hash) {
+
+        // If password columns don't exist, skip password and login directly
+        if (!passwordColumnsExist) {
+            setLoggingIn(true)
+            await login(selectedId)
+            return
+        }
+
+        // Re-fetch the latest password status directly from Supabase
+        // This prevents stale data from the initial load causing incorrect flow
+        const { data: freshMember, error: fetchErr } = await supabase
+            .from('members')
+            .select('id, password_hash, has_set_password')
+            .eq('id', selectedId)
+            .single()
+
+        if (fetchErr || !freshMember) {
+            // If fetch fails (columns don't exist, etc.), login directly
+            setLoggingIn(true)
+            await login(selectedId)
+            return
+        }
+
+        // Update the local members state with the fresh data
+        setMembers(prev => prev.map(m =>
+            m.id === selectedId
+                ? { ...m, password_hash: freshMember.password_hash, has_set_password: freshMember.has_set_password }
+                : m
+        ))
+
+        // Determine the correct step based on fresh data
+        if (freshMember.password_hash) {
             setStep('password')
-        } else if (!member.has_set_password) {
+        } else if (!freshMember.has_set_password) {
             setStep('setup')
         } else {
             setStep('password')
@@ -138,13 +191,25 @@ export default function LoginPage() {
         setError('')
 
         const hashed = await hashPassword(newPassword)
-        // Try to save password — if columns don't exist yet, just log in anyway
-        await supabase
+        // Save password to Supabase
+        const { error: updateError } = await supabase
             .from('members')
             .update({ password_hash: hashed, has_set_password: true })
             .eq('id', selectedId)
 
-        // Auto-login after setup (even if save failed due to missing columns)
+        if (updateError) {
+            console.warn('Failed to save password:', updateError.message)
+            // Still allow login even if save failed (columns may not exist)
+        } else {
+            // Update local state so the member shows as having set password
+            setMembers(prev => prev.map(m =>
+                m.id === selectedId
+                    ? { ...m, password_hash: hashed, has_set_password: true }
+                    : m
+            ))
+        }
+
+        // Auto-login after setup
         await login(selectedId)
     }
 
@@ -165,10 +230,25 @@ export default function LoginPage() {
         outline: 'none', transition: 'border-color 0.2s',
     }
 
+    // Show loading state during SSR and initial hydration to prevent mismatch
+    if (!mounted) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                background: 'linear-gradient(135deg, #fdfbfb 0%, #f5eedc 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+            }}>
+                <div style={{ color: '#64748b', fontSize: '0.875rem' }}>Memuat...</div>
+            </div>
+        )
+    }
+
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 25%, #4c1d95 50%, #6d28d9 75%, #7c3aed 100%)',
+            background: 'linear-gradient(135deg, #fdfbfb 0%, #f5eedc 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -178,7 +258,7 @@ export default function LoginPage() {
             {/* Background pattern */}
             <div style={{
                 position: 'fixed', inset: 0, opacity: 0.05,
-                backgroundImage: 'radial-gradient(circle at 25px 25px, white 2%, transparent 0%), radial-gradient(circle at 75px 75px, white 2%, transparent 0%)',
+                backgroundImage: 'radial-gradient(circle at 25px 25px, #94a3b8 2%, transparent 0%), radial-gradient(circle at 75px 75px, #94a3b8 2%, transparent 0%)',
                 backgroundSize: '100px 100px',
             }} />
 
@@ -189,18 +269,14 @@ export default function LoginPage() {
             }}>
                 {/* Logo */}
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                    <div style={{
-                        width: 72, height: 72, borderRadius: 20,
-                        background: 'linear-gradient(135deg, #dc2626, #991b1b)',
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'white', fontWeight: 800, fontSize: 24,
-                        boxShadow: '0 8px 32px rgba(220, 38, 38, 0.4)',
-                        marginBottom: '1rem',
-                    }}>CSC</div>
-                    <h1 style={{ color: 'white', fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                    <img src="/logo.png" alt="CSC Logo" style={{
+                        width: 90, height: 90, objectFit: 'contain',
+                        display: 'block', margin: '0 auto 1.5rem auto',
+                    }} />
+                    <h1 style={{ color: '#0f172a', fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>
                         CSC Management
                     </h1>
-                    <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' }}>
+                    <p style={{ color: '#475569', fontSize: '0.875rem' }}>
                         Community Support Center — Telkom University
                     </p>
                 </div>
@@ -261,7 +337,7 @@ export default function LoginPage() {
                                                 <optgroup key={dept} label={`📁 ${dept}`}>
                                                     {(deptMembers as any[]).map((m: any) => (
                                                         <option key={m.id} value={m.id}>
-                                                            {m.full_name} — {m.role} {m.position ? `(${m.position})` : ''} {!m.has_set_password ? '🆕' : ''}
+                                                            {m.full_name} — {m.role} {m.position ? `(${m.position})` : ''} {!m.password_hash && !m.has_set_password ? '🆕' : ''}
                                                         </option>
                                                     ))}
                                                 </optgroup>
@@ -310,7 +386,7 @@ export default function LoginPage() {
                                                 }}>
                                                     <Building2 size={12} /> {selectedMember.department}
                                                 </span>
-                                                {!selectedMember.has_set_password && (
+                                                {!selectedMember.password_hash && !selectedMember.has_set_password && (
                                                     <span style={{
                                                         display: 'inline-flex', alignItems: 'center', gap: 4,
                                                         padding: '0.25rem 0.625rem', borderRadius: 6,
@@ -588,7 +664,7 @@ export default function LoginPage() {
                 </div>
 
                 <p style={{
-                    textAlign: 'center', color: 'rgba(255,255,255,0.4)',
+                    textAlign: 'center', color: '#64748b',
                     fontSize: '0.75rem', marginTop: '1.5rem',
                 }}>
                     CSC Management System v1.0

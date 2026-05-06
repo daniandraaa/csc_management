@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getStatusColor, getStatusLabel, formatDateShort } from '@/lib/utils'
 import { useCurrentUser } from '@/lib/auth'
-import { PenTool, Plus, X, Upload, FileText, Download, Inbox, CheckCircle2, XCircle } from 'lucide-react'
+import { canManageModule } from '@/lib/rbac'
+import { PenTool, Plus, X, Upload, FileText, Download, Inbox, CheckCircle2, XCircle, ChevronDown } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
 import { exportToPdf, exportToCsv } from '@/lib/export'
 
@@ -26,6 +27,7 @@ const PDF_COLUMNS = [
 
 export default function ContentPage() {
     const { currentUser } = useCurrentUser()
+    const canManage = canManageModule(currentUser, 'content')
     const [activeTab, setActiveTab] = useState<'plans' | 'requests'>('plans')
     const [plans, setPlans] = useState<any[]>([])
     const [members, setMembers] = useState<any[]>([])
@@ -66,12 +68,18 @@ export default function ContentPage() {
     async function handleDelete(id: string) { if (confirm('Hapus?')) { await supabase.from('content_plans').delete().eq('id', id); loadData() } }
 
     async function updateRequestStatus(id: string, status: string, notes?: string) {
-        await supabase.from('content_requests').update({
+        const { error } = await supabase.from('content_requests').update({
             status,
             marketing_notes: notes || null,
             handled_by: currentUser?.id,
             updated_at: new Date().toISOString(),
         }).eq('id', id)
+        
+        if (error) {
+            console.error('Update status error:', error)
+            alert(`Gagal update status: ${error.message}`)
+            return
+        }
         loadData()
     }
 
@@ -201,23 +209,40 @@ export default function ContentPage() {
                                                 }}>{st.label}</span>
                                             </td>
                                             <td>
-                                                <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
-                                                    {r.status === 'pending' && (
-                                                        <>
-                                                            <button className="btn btn-primary btn-sm" onClick={() => convertToContentPlan(r)} title="Terima & buat content plan">
-                                                                <CheckCircle2 size={14} /> Terima
+                                                {canManage ? (
+                                                    <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                                                        {r.status === 'pending' && (
+                                                            <>
+                                                                <button className="btn btn-primary btn-sm" onClick={() => convertToContentPlan(r)} title="Terima & buat content plan">
+                                                                    <CheckCircle2 size={14} /> Terima
+                                                                </button>
+                                                                <button className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => updateRequestStatus(r.id, 'rejected')} title="Tolak">
+                                                                    <XCircle size={14} />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        {r.status === 'in_progress' && (
+                                                            <button className="btn btn-secondary btn-sm" onClick={() => updateRequestStatus(r.id, 'completed', 'Konten selesai')}>
+                                                                Selesai
                                                             </button>
-                                                            <button className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => updateRequestStatus(r.id, 'rejected')} title="Tolak">
-                                                                <XCircle size={14} />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                    {r.status === 'in_progress' && (
-                                                        <button className="btn btn-secondary btn-sm" onClick={() => updateRequestStatus(r.id, 'completed', 'Konten selesai')}>
-                                                            Selesai
-                                                        </button>
-                                                    )}
-                                                </div>
+                                                        )}
+                                                        {['completed', 'rejected'].includes(r.status) && (
+                                                            <select 
+                                                                className="form-select" 
+                                                                style={{ width: 'auto', fontSize: '0.75rem', height: '2rem', padding: '0 0.5rem' }}
+                                                                value={r.status}
+                                                                onChange={(e) => updateRequestStatus(r.id, e.target.value)}
+                                                            >
+                                                                <option value="pending">Set Pending</option>
+                                                                <option value="in_progress">Set In Progress</option>
+                                                                <option value="completed">Completed</option>
+                                                                <option value="rejected">Rejected</option>
+                                                            </select>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>No Access</span>
+                                                )}
                                             </td>
                                         </tr>
                                     )

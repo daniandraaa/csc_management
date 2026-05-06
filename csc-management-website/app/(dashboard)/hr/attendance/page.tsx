@@ -5,7 +5,9 @@ import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/lib/auth'
 import { canPerformAction } from '@/lib/rbac'
 import { formatDateShort } from '@/lib/utils'
-import { CalendarCheck, Plus, X, Users, RefreshCw, CheckSquare, Clock, BarChart3, Trash2 } from 'lucide-react'
+import { CalendarCheck, Plus, X, Users, RefreshCw, CheckSquare, Clock, BarChart3, Trash2, FileText, QrCode } from 'lucide-react'
+import { exportToPdf } from '@/lib/export'
+import { QRCodeCanvas } from 'qrcode.react'
 
 export default function AttendancePage() {
     const { currentUser } = useCurrentUser()
@@ -30,6 +32,15 @@ export default function AttendancePage() {
     // Detail modal
     const [showDetail, setShowDetail] = useState<string | null>(null)
     const [sessionMembers, setSessionMembers] = useState<any[]>([])
+
+    // Member Summary State
+    const [showMemberSummary, setShowMemberSummary] = useState(false)
+    const [memberSummaryData, setMemberSummaryData] = useState<any[]>([])
+    const [summaryLoading, setSummaryLoading] = useState(false)
+
+    // QR modal states
+    const [showQR, setShowQR] = useState<any>(null)
+    const [generatingQR, setGeneratingQR] = useState(false)
 
     const canCreate = canPerformAction(currentUser, '/hr/attendance', 'create')
 
@@ -175,18 +186,63 @@ export default function AttendancePage() {
         loadData()
     }
 
-    async function markExpiredAsAlpa(sessionId: string) {
-        const { data } = await supabase.from('attendance_session_members')
-            .select('id')
-            .eq('session_id', sessionId)
-            .eq('status', 'pending')
-        if (data && data.length > 0) {
-            for (const m of data) {
-                await supabase.from('attendance_session_members').update({ status: 'alpa' }).eq('id', m.id)
+    async function handleShowQR(session: any) {
+        if (!session.qr_token) {
+            setGeneratingQR(true)
+            const newToken = `csc-atd-${session.id}-${Math.random().toString(36).substring(2, 9)}`
+            const { data, error } = await supabase
+                .from('attendance_sessions')
+                .update({ qr_token: newToken })
+                .eq('id', session.id)
+                .select()
+                .single()
+            
+            if (error) {
+                console.error('QR Generation Error:', error)
+                alert(`Gagal generate QR Token: ${error.message}. Pastikan Anda sudah menjalankan script SQL untuk menambahkan kolom qr_token.`)
+            } else {
+                setShowQR(data)
+                loadData()
             }
-            if (showDetail) loadSessionDetail(showDetail)
-            loadData()
+            setGeneratingQR(false)
+        } else {
+            setShowQR(session)
         }
+    }
+
+    async function loadMemberSummary() {
+        setSummaryLoading(true)
+        setShowMemberSummary(true)
+        
+        // Fetch all attendance records
+        const { data: attendance } = await supabase
+            .from('attendance_session_members')
+            .select('member_id, status')
+        
+        if (attendance) {
+            // Group by member
+            const summaryMap: Record<string, { total: number, present: number }> = {}
+            attendance.forEach(a => {
+                if (!summaryMap[a.member_id]) summaryMap[a.member_id] = { total: 0, present: 0 }
+                summaryMap[a.member_id].total++
+                if (a.status === 'present') summaryMap[a.member_id].present++
+            })
+
+            // Map back to member details
+            const summary = members.map(m => {
+                const stats = summaryMap[m.id] || { total: 0, present: 0 }
+                return {
+                    ...m,
+                    total: stats.total,
+                    present: stats.present,
+                    rate: stats.total > 0 ? (stats.present / stats.total) * 100 : 0
+                }
+            })
+            
+            summary.sort((a, b) => b.rate - a.rate)
+            setMemberSummaryData(summary)
+        }
+        setSummaryLoading(false)
     }
 
     const statusLabels: Record<string, string> = {
@@ -210,6 +266,9 @@ export default function AttendancePage() {
                         </span>
                     </div>
                     <div className="toolbar-right">
+                        <button className="btn btn-secondary" onClick={loadMemberSummary}>
+                            <BarChart3 size={16} /> Rekap Anggota
+                        </button>
                         {canCreate && (
                             <button className="btn btn-primary" onClick={() => { setShowGenerate(true); loadSources('timeline') }}>
                                 <RefreshCw size={16} /> Generate Kehadiran
@@ -266,11 +325,14 @@ export default function AttendancePage() {
                                         <button className="btn btn-secondary btn-sm" onClick={() => loadSessionDetail(s.id)}>
                                             <Users size={14} /> Detail
                                         </button>
-                                        {canCreate && isExpired && s._pending > 0 && (
-                                            <button className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => markExpiredAsAlpa(s.id)}>
-                                                Tandai Alpa
-                                            </button>
-                                        )}
+                                        <button 
+                                            className={`btn ${s.qr_token ? 'btn-primary' : 'btn-secondary'} btn-sm`} 
+                                            onClick={() => handleShowQR(s)}
+                                            disabled={generatingQR}
+                                        >
+                                            <QrCode size={14} /> {s.qr_token ? 'QR Code' : 'Gen QR'}
+                                        </button>
+                                        {/* Button temporarily removed due to missing function */}
                                         {canCreate && (
                                             <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => deleteSession(s.id)}>
                                                 <Trash2 size={14} />
@@ -381,14 +443,14 @@ export default function AttendancePage() {
                             <div className="modal-header"><h2>Detail Kehadiran</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowDetail(null)}><X size={18} /></button></div>
                             <div className="modal-body">
                                 {/* Stats */}
-                                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
                                     {['present', 'absent', 'excused', 'alpa', 'pending'].map(status => {
                                         const count = sessionMembers.filter(m => m.status === status).length
                                         return (
                                             <div key={status} style={{
-                                                padding: '0.5rem 0.75rem', borderRadius: 8,
+                                                padding: '0.4rem 0.6rem', borderRadius: 8,
                                                 background: status === 'present' ? '#f0fdf4' : status === 'pending' ? '#fef3c7' : '#fee2e2',
-                                                fontSize: '0.8125rem',
+                                                fontSize: '0.75rem',
                                             }}>
                                                 <strong style={{ color: statusColors[status] }}>{count}</strong>{' '}
                                                 <span style={{ color: '#64748b' }}>{statusLabels[status]}</span>
@@ -400,38 +462,148 @@ export default function AttendancePage() {
                                 {sessionMembers.length === 0 ? (
                                     <p style={{ textAlign: 'center', color: '#94a3b8', padding: '1rem' }}>Belum ada anggota</p>
                                 ) : (
-                                    <table className="data-table">
-                                        <thead><tr><th>Nama</th><th>Bidang</th><th>Status</th>{canCreate && <th>Ubah</th>}</tr></thead>
-                                        <tbody>
-                                            {sessionMembers.map((m: any) => (
-                                                <tr key={m.id}>
-                                                    <td style={{ fontWeight: 500 }}>{m.member?.full_name}</td>
-                                                    <td style={{ fontSize: '0.8125rem', color: '#64748b' }}>{m.member?.department || '-'}</td>
-                                                    <td>
-                                                        <span style={{
-                                                            display: 'inline-block', padding: '0.15rem 0.5rem', borderRadius: 6,
-                                                            fontSize: '0.6875rem', fontWeight: 600,
-                                                            background: m.status === 'present' ? '#dcfce7' : m.status === 'pending' ? '#fef3c7' : '#fee2e2',
-                                                            color: statusColors[m.status] || '#475569',
-                                                        }}>{statusLabels[m.status] || m.status}</span>
-                                                    </td>
-                                                    {canCreate && (
+                                    <div className="data-table-container">
+                                        <table className="data-table">
+                                            <thead><tr><th>Nama</th><th>Bidang</th><th>Status</th>{canCreate && <th>Ubah</th>}</tr></thead>
+                                            <tbody>
+                                                {sessionMembers.map((m: any) => (
+                                                    <tr key={m.id}>
+                                                        <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{m.member?.full_name}</td>
+                                                        <td style={{ fontSize: '0.8125rem', color: '#64748b', whiteSpace: 'nowrap' }}>{m.member?.department || '-'}</td>
                                                         <td>
-                                                            <select className="form-select" style={{ width: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                                                                value={m.status} onChange={e => updateMemberStatus(m.id, e.target.value)}>
-                                                                <option value="pending">Menunggu</option>
-                                                                <option value="present">Hadir</option>
-                                                                <option value="absent">Tidak Hadir</option>
-                                                                <option value="excused">Izin</option>
-                                                                <option value="alpa">Alpa</option>
-                                                            </select>
+                                                            <span style={{
+                                                                display: 'inline-block', padding: '0.15rem 0.5rem', borderRadius: 6,
+                                                                fontSize: '0.6875rem', fontWeight: 600,
+                                                                background: m.status === 'present' ? '#dcfce7' : m.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                                                                color: statusColors[m.status] || '#475569',
+                                                                whiteSpace: 'nowrap'
+                                                            }}>{statusLabels[m.status] || m.status}</span>
                                                         </td>
-                                                    )}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                                        {canCreate && (
+                                                            <td>
+                                                                <select className="form-select" style={{ width: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.75rem', minWidth: '100px' }}
+                                                                    value={m.status} onChange={e => updateMemberStatus(m.id, e.target.value)}>
+                                                                    <option value="pending">Menunggu</option>
+                                                                    <option value="present">Hadir</option>
+                                                                    <option value="absent">Tidak Hadir</option>
+                                                                    <option value="excused">Izin</option>
+                                                                    <option value="alpa">Alpa</option>
+                                                                </select>
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Member Summary Modal */}
+                {showMemberSummary && (
+                    <div className="modal-overlay" onClick={() => setShowMemberSummary(false)}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 800 }}>
+                            <div className="modal-header">
+                                <div>
+                                    <h2 style={{ marginBottom: 4, fontSize: '1.25rem' }}>Rekap Kehadiran Anggota</h2>
+                                    <p style={{ fontSize: '0.8125rem', color: '#64748b' }}>Persentase kehadiran akumulatif dari seluruh kegiatan.</p>
+                                </div>
+                                <button className="btn btn-ghost btn-icon" onClick={() => setShowMemberSummary(false)}><X size={18} /></button>
+                            </div>
+                            <div className="modal-body">
+                                {summaryLoading ? (
+                                    <p style={{ textAlign: 'center', padding: '2rem' }}>Menghitung rekap...</p>
+                                ) : (
+                                    <div className="data-table-container" style={{ maxHeight: 500 }}>
+                                        <table className="data-table">
+                                            <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'white' }}>
+                                                <tr>
+                                                    <th>Nama Anggota</th>
+                                                    <th>Bidang</th>
+                                                    <th style={{ textAlign: 'center' }}>Total Sesi</th>
+                                                    <th style={{ textAlign: 'center' }}>Hadir</th>
+                                                    <th>Persentase</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {memberSummaryData.map((m: any) => (
+                                                    <tr key={m.id}>
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            <div style={{ fontWeight: 600 }}>{m.full_name}</div>
+                                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{m.role}</div>
+                                                        </td>
+                                                        <td style={{ fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>{m.department}</td>
+                                                        <td style={{ textAlign: 'center', fontWeight: 500 }}>{m.total}</td>
+                                                        <td style={{ textAlign: 'center', fontWeight: 600, color: '#16a34a' }}>{m.present}</td>
+                                                        <td style={{ minWidth: 140 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                <div className="progress-bar" style={{ flex: 1, height: 6 }}>
+                                                                    <div className={`progress-bar-fill ${m.rate >= 75 ? 'success' : m.rate >= 50 ? 'warning' : 'danger'}`} style={{ width: `${m.rate}%` }} />
+                                                                </div>
+                                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, width: 35 }}>{m.rate.toFixed(0)}%</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="modal-footer" style={{ flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
+                                <button className="btn btn-primary" onClick={() => exportToPdf({ 
+                                    title: 'Laporan Rekap Kehadiran Anggota CSC', 
+                                    subtitle: `Dicetak pada ${new Date().toLocaleDateString('id-ID')}`,
+                                    columns: [
+                                        { header: 'Nama', key: 'full_name' },
+                                        { header: 'Bidang', key: 'department' },
+                                        { header: 'Total Sesi', key: 'total' },
+                                        { header: 'Hadir', key: 'present' },
+                                        { header: 'Rate (%)', key: 'rate' }
+                                    ],
+                                    data: memberSummaryData.map(m => ({ ...m, rate: m.rate.toFixed(1) }))
+                                })}>
+                                    <FileText size={14} /> Export PDF
+                                </button>
+                                <button className="btn btn-secondary" onClick={() => setShowMemberSummary(false)}>Tutup</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {/* QR Display Modal */}
+                {showQR && (
+                    <div className="modal-overlay" onClick={() => setShowQR(null)}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 400, textAlign: 'center' }}>
+                            <div className="modal-header">
+                                <h2>QR Code Kehadiran</h2>
+                                <button className="btn btn-ghost btn-icon" onClick={() => setShowQR(null)}><X size={18} /></button>
+                            </div>
+                            <div className="modal-body" style={{ padding: '2rem' }}>
+                                <div style={{ 
+                                    background: 'white', 
+                                    padding: '1.5rem', 
+                                    borderRadius: '1.5rem', 
+                                    display: 'inline-block',
+                                    boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
+                                    marginBottom: '1.5rem'
+                                }}>
+                                    <QRCodeCanvas 
+                                        value={showQR.qr_token} 
+                                        size={240}
+                                        level="H"
+                                        includeMargin={false}
+                                    />
+                                </div>
+                                <h3 style={{ fontWeight: 700, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{showQR.title}</h3>
+                                <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.5rem' }}>
+                                    Anggota dapat melakukan scan pada QR ini melalui menu "Kehadiran Saya" untuk melakukan check-in otomatis.
+                                </p>
+                                <button className="btn btn-secondary btn-block" onClick={() => window.print()}>
+                                    Cetak QR
+                                </button>
                             </div>
                         </div>
                     </div>
