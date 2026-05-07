@@ -49,38 +49,30 @@ export default function LoginPage() {
     useEffect(() => {
         async function loadMembers() {
             try {
-                // First, always load basic member data (this always works)
-                const { data: basicData, error: basicError } = await supabase
+                // Combine into a single query to reduce latency
+                const { data, error } = await supabase
                     .from('members')
-                    .select('id, full_name, role, department, position, email')
+                    .select('id, full_name, role, department, position, email, has_set_password, password_hash')
                     .order('department')
                     .order('role')
                     .order('full_name')
 
-                if (basicError || !basicData) {
-                    console.error('Failed to load members:', basicError?.message)
-                    setMembers([])
-                    setLoading(false)
-                    return
-                }
+                if (error) {
+                    console.warn('Could not load all columns, falling back to basic data:', error.message)
+                    // Fallback to basic data if password columns are missing
+                    const { data: basicData, error: basicError } = await supabase
+                        .from('members')
+                        .select('id, full_name, role, department, position, email')
+                        .order('department')
+                        .order('role')
+                        .order('full_name')
 
-                // Then try to fetch password columns separately
-                const { data: pwData, error: pwError } = await supabase
-                    .from('members')
-                    .select('id, has_set_password, password_hash')
-
-                if (pwError || !pwData) {
-                    // Password columns don't exist yet - use basic data without password info
+                    if (basicError) throw basicError
+                    setMembers(basicData?.map(m => ({ ...m, has_set_password: false, password_hash: null })) || [])
                     setPasswordColumnsExist(false)
-                    setMembers(basicData.map(m => ({ ...m, has_set_password: false, password_hash: null })))
                 } else {
-                    // Merge password data into basic data
+                    setMembers(data || [])
                     setPasswordColumnsExist(true)
-                    const pwMap = new Map(pwData.map(p => [p.id, p]))
-                    setMembers(basicData.map(m => {
-                        const pw = pwMap.get(m.id)
-                        return { ...m, has_set_password: pw?.has_set_password ?? false, password_hash: pw?.password_hash ?? null }
-                    }))
                 }
                 setLoading(false)
             } catch (err) {
@@ -99,41 +91,21 @@ export default function LoginPage() {
         setNewPassword('')
         setConfirmPassword('')
 
-        // If password columns don't exist, skip password and login directly
-        if (!passwordColumnsExist) {
-            setLoggingIn(true)
-            await login(selectedId)
+        const member = members.find(m => m.id === selectedId)
+        if (!member) return
+
+        // If password columns don't exist or member has no hash, determine next step
+        if (!passwordColumnsExist || !member.password_hash) {
+            if (!passwordColumnsExist) {
+                setLoggingIn(true)
+                await login(selectedId)
+            } else {
+                setStep('setup')
+            }
             return
         }
 
-        // Re-fetch the latest password status directly from Supabase
-        // This prevents stale data from the initial load causing incorrect flow
-        const { data: freshMember, error: fetchErr } = await supabase
-            .from('members')
-            .select('id, password_hash, has_set_password')
-            .eq('id', selectedId)
-            .single()
-
-        if (fetchErr || !freshMember) {
-            // If fetch fails (columns don't exist, etc.), login directly
-            setLoggingIn(true)
-            await login(selectedId)
-            return
-        }
-
-        // Update the local members state with the fresh data
-        setMembers(prev => prev.map(m =>
-            m.id === selectedId
-                ? { ...m, password_hash: freshMember.password_hash, has_set_password: freshMember.has_set_password }
-                : m
-        ))
-
-        // Determine the correct step based on fresh data
-        if (!freshMember.password_hash) {
-            setStep('setup')
-        } else {
-            setStep('password')
-        }
+        setStep('password')
     }
 
     async function handlePasswordLogin() {
@@ -141,19 +113,9 @@ export default function LoginPage() {
         setError('')
         setLoggingIn(true)
 
-        // Try to verify password against stored hash
-        const { data: member, error: fetchError } = await supabase
-            .from('members')
-            .select('password_hash')
-            .eq('id', selectedId)
-            .single()
-
-        // If column doesn't exist yet, skip password check and log in directly
-        if (fetchError) {
-            await login(selectedId)
-            return
-        }
-
+        const member = members.find(m => m.id === selectedId)
+        
+        // If password hash is missing, they need to setup
         if (!member?.password_hash) {
             setError('Akun belum memiliki password. Silakan buat password terlebih dahulu.')
             setLoggingIn(false)
