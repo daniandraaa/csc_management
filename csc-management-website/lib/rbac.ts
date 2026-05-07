@@ -151,7 +151,7 @@ const PAGE_PERMISSIONS: PagePermission[] = [
     },
     {
         path: '/admin-review', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff', 'Business Partner'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'Administration'] }
+        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'Administration'], delete: ['BOE', 'Administration'] }
     },
 ]
 

@@ -6,7 +6,7 @@ import { useCurrentUser } from '@/lib/auth'
 import { useSearchParams } from 'next/navigation'
 import { canPerformAction, isSecretary, isAdministration, isBOE } from '@/lib/rbac'
 import { getStatusColor, getStatusLabel, formatDateShort, getInitials } from '@/lib/utils'
-import { ShieldCheck, Plus, X, Search, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { ShieldCheck, Plus, X, Search, CheckCircle2, XCircle, AlertCircle, Trash2, Edit } from 'lucide-react'
 
 export default function AdminReviewPage() {
     const { currentUser } = useCurrentUser()
@@ -24,6 +24,7 @@ export default function AdminReviewPage() {
 
     const canCreate = canPerformAction(currentUser, '/admin-review', 'create')
     const canReview = canPerformAction(currentUser, '/admin-review', 'approve')
+    const canDelete = canPerformAction(currentUser, '/admin-review', 'delete')
     const userIsSecretary = isSecretary(currentUser)
     const userIsAdmin = isAdministration(currentUser)
     const userIsExecutive = isBOE(currentUser)
@@ -59,7 +60,7 @@ export default function AdminReviewPage() {
             if (fullDocs) reviewsData = fullDocs
         }
         const { data: m } = await supabase.from('members').select('id,full_name')
-        const { data: d } = await supabase.from('documents').select('id,title,document_number').order('document_date', { ascending: false })
+        const { data: d } = await supabase.from('documents').select('id,title,document_number,file_url').order('document_date', { ascending: false })
 
         let filtered = reviewsData
         // Business Partners only see their own submissions
@@ -124,6 +125,26 @@ export default function AdminReviewPage() {
         setShowReview(r)
     }
 
+    function openEdit(r: any) {
+        setEditId(r.id)
+        setForm({
+            title: r.title,
+            description: r.description || '',
+            submitted_by: r.submitted_by,
+            file_url: r.file_url || '',
+            link_url: r.link_url || '',
+            change_description: r.change_description || '',
+            document_id: r.document_id || ''
+        })
+        setShowModal(true)
+    }
+
+    async function handleDelete(id: string) {
+        if (!confirm('Yakin ingin menghapus review ini?')) return
+        await supabase.from('admin_reviews').delete().eq('id', id)
+        loadData()
+    }
+
     const statusIcon = (status: string) => {
         if (status === 'approved') return <CheckCircle2 size={16} style={{ color: 'var(--color-success)' }} />
         if (status === 'rejected') return <XCircle size={16} style={{ color: 'var(--color-danger)' }} />
@@ -169,45 +190,58 @@ export default function AdminReviewPage() {
 
                 <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                     <table className="data-table">
-                        <thead><tr><th>Judul</th><th>Pengaju</th><th>File/Link</th><th style={{ textAlign: 'center' }}>Sekretaris</th><th style={{ textAlign: 'center' }}>Administrasi</th><th>Revisi</th><th>Tanggal</th>{canReview && <th>Aksi</th>}</tr></thead>
+                        <thead><tr><th>Judul</th><th>Pengaju</th><th>File/Link</th><th style={{ textAlign: 'center' }}>Sekretaris</th><th style={{ textAlign: 'center' }}>Administrasi</th><th style={{ textAlign: 'center' }}>Revisi</th><th>Tanggal</th>{canReview && <th>Aksi</th>}</tr></thead>
                         <tbody>
                             {loading ? <tr><td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>Memuat...</td></tr> :
                                 reviews.length === 0 ? <tr><td colSpan={8}><div className="empty-state"><ShieldCheck size={48} /><h3>Belum ada review</h3></div></td></tr> :
                                     reviews.map((r: any) => (
                                         <tr key={r.id}>
-                                            <td>
-                                                <div style={{ fontWeight: 500 }}>{r.title}</div>
-                                                {r.change_description && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', marginTop: 2 }}>Perubahan: {r.change_description}</div>}
+                                            <td data-label="Judul">
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                    <div style={{ fontWeight: 600 }}>{r.title}</div>
+                                                    {r.change_description && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>Perubahan: {r.change_description}</div>}
+                                                </div>
                                             </td>
-                                            <td>{r.submitter?.full_name}</td>
-                                            <td>
+                                            <td data-label="Pengaju">{r.submitter?.full_name}</td>
+                                            <td data-label="File/Link">
                                                 {r.document && (
                                                     <div style={{ fontSize: '0.8125rem', marginBottom: 4, padding: '4px 8px', background: 'var(--color-surface-secondary)', borderRadius: 4 }}>
                                                         <strong>Dokumen:</strong> {r.document.title}
                                                     </div>
                                                 )}
                                                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                                    {r.document?.file_url && <a href={r.document.file_url} target="_blank" className="btn btn-ghost btn-sm" style={{ color: 'var(--color-brand-600)' }}>📄 Dokumen</a>}
-                                                    {r.file_url && <a href={r.file_url} target="_blank" className="btn btn-ghost btn-sm" style={{ color: 'var(--color-brand-600)' }}>📄 File</a>}
-                                                    {r.link_url && <a href={r.link_url} target="_blank" className="btn btn-ghost btn-sm" style={{ color: 'var(--color-brand-600)' }}>🔗 Link</a>}
-                                                    {!r.file_url && !r.link_url && !r.document?.file_url && '-'}
+                                                    {(r.file_url || r.link_url || r.document?.file_url) ? (
+                                                        <a href={r.file_url || r.link_url || r.document?.file_url} target="_blank" className="btn btn-ghost btn-sm" style={{ color: 'var(--color-brand-600)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                                            <Search size={14} /> Buka Link
+                                                        </a>
+                                                    ) : '-'}
                                                 </div>
                                             </td>
-                                            <td style={{ textAlign: 'center' }}>
+                                            <td data-label="Sekretaris" style={{ textAlign: 'center' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                                                     {statusIcon(r.secretary_status)}
                                                     <span className={`badge badge-${getStatusColor(r.secretary_status)}`} style={{ fontSize: '0.6875rem' }}>{getStatusLabel(r.secretary_status)}</span>
                                                 </div>
                                             </td>
-                                            <td style={{ textAlign: 'center' }}>
+                                            <td data-label="Administrasi" style={{ textAlign: 'center' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                                                     {statusIcon(r.admin_status)}
                                                     <span className={`badge badge-${getStatusColor(r.admin_status)}`} style={{ fontSize: '0.6875rem' }}>{getStatusLabel(r.admin_status)}</span>
                                                 </div>
                                             </td>
-                                            <td style={{ textAlign: 'center' }}>{r.revision_count}</td>
-                                            <td style={{ fontSize: '0.8125rem' }}>{formatDateShort(r.created_at)}</td>
-                                            {canReview && <td><button className="btn btn-secondary btn-sm" onClick={() => openReview(r)}>Review</button></td>}
+                                            <td data-label="Revisi" style={{ textAlign: 'center' }}>{r.revision_count}</td>
+                                            <td data-label="Tanggal" style={{ fontSize: '0.8125rem' }}>{formatDateShort(r.created_at)}</td>
+                                            <td data-label="Aksi">
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    {canReview && <button className="btn btn-secondary btn-sm" onClick={() => openReview(r)}>Review</button>}
+                                                    {(canCreate && r.submitted_by === currentUser?.id || userIsAdmin || userIsExecutive) && (
+                                                        <button className="btn btn-ghost btn-sm btn-icon" title="Edit" onClick={() => openEdit(r)}><Edit size={14} /></button>
+                                                    )}
+                                                    {canDelete && (
+                                                        <button className="btn btn-ghost btn-sm btn-icon" title="Hapus" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(r.id)}><Trash2 size={14} /></button>
+                                                    )}
+                                                </div>
+                                            </td>
                                         </tr>
                                     ))}
                         </tbody>
@@ -232,16 +266,21 @@ export default function AdminReviewPage() {
                                     )}
                                 </div>
                                 <div className="form-group"><label className="form-label">Dokumen Terkait (Opsional)</label>
-                                    <select className="form-select" value={form.document_id} onChange={e => setForm({ ...form, document_id: e.target.value })}>
+                                    <select className="form-select" value={form.document_id} onChange={e => {
+                                        const selectedDocId = e.target.value;
+                                        const doc = documents.find(d => d.id === selectedDocId);
+                                        setForm({ 
+                                            ...form, 
+                                            document_id: selectedDocId,
+                                            file_url: doc?.file_url || form.file_url 
+                                        });
+                                    }}>
                                         <option value="">-- Pilih Dokumen --</option>
                                         {documents.map((d: any) => <option key={d.id} value={d.id}>{d.document_number ? `[${d.document_number}] ` : ''}{d.title}</option>)}
                                     </select>
                                 </div>
                                 <div className="form-group"><label className="form-label">Deskripsi</label><textarea className="form-textarea" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                    <div className="form-group"><label className="form-label">Link File (PDF)</label><input className="form-input" placeholder="https://..." value={form.file_url} onChange={e => setForm({ ...form, file_url: e.target.value })} /></div>
-                                    <div className="form-group"><label className="form-label">Link Dokumen</label><input className="form-input" placeholder="https://..." value={form.link_url} onChange={e => setForm({ ...form, link_url: e.target.value })} /></div>
-                                </div>
+                                <div className="form-group"><label className="form-label">Link File (PDF)</label><input className="form-input" placeholder="https://..." value={form.file_url} onChange={e => setForm({ ...form, file_url: e.target.value })} /></div>
                                 <div className="form-group"><label className="form-label">Deskripsi Perubahan</label><textarea className="form-textarea" placeholder="Jelaskan perubahan yang dilakukan..." value={form.change_description} onChange={e => setForm({ ...form, change_description: e.target.value })} /></div>
                             </div><div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Batal</button><button type="submit" className="btn btn-primary">Ajukan</button></div></form>
                         </div>
@@ -262,9 +301,11 @@ export default function AdminReviewPage() {
                                             <strong>Dokumen Terkait:</strong> {showReview.document.title} {showReview.document.document_number && `(${showReview.document.document_number})`}
                                         </div>
                                     )}
-                                    {showReview.document?.file_url && <a href={showReview.document.file_url} target="_blank" className="btn btn-secondary btn-sm">📄 Buka Dokumen</a>}
-                                    {showReview.file_url && <a href={showReview.file_url} target="_blank" className="btn btn-secondary btn-sm">📄 Buka File Review</a>}
-                                    {showReview.link_url && <a href={showReview.link_url} target="_blank" className="btn btn-secondary btn-sm">🔗 Buka Link Review</a>}
+                                    {(showReview.file_url || showReview.link_url || showReview.document?.file_url) && (
+                                        <a href={showReview.file_url || showReview.link_url || showReview.document?.file_url} target="_blank" className="btn btn-secondary btn-sm">
+                                            <Search size={14} /> Buka Link
+                                        </a>
+                                    )}
                                 </div>
 
                                 {/* Sekretaris Review — can edit only if Admin or Executive */}

@@ -26,6 +26,7 @@ export default function OverviewEvaluationsPage() {
             .select('session:attendance_sessions!inner(source_type, source_id)')
             .eq('member_id', currentUser?.id)
             .eq('session.source_type', 'program')
+            .eq('role_type', 'Panitia')
             
         // Extract unique program IDs
         const allowedProgramIds = [...new Set(

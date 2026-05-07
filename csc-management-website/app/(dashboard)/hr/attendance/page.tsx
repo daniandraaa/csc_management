@@ -23,11 +23,13 @@ export default function AttendancePage() {
 
     // Member selection modal
     const [showMemberSelect, setShowMemberSelect] = useState(false)
-    const [selectedMembers, setSelectedMembers] = useState<string[]>([])
+    const [selectedMembers, setSelectedMembers] = useState<{id: string, role: 'Peserta' | 'Panitia'}[]>([])
+    const [targetSessionId, setTargetSessionId] = useState<string | null>(null) // For adding to existing
     const [sessionTitle, setSessionTitle] = useState('')
     const [sessionDate, setSessionDate] = useState('')
     const [sessionDeadline, setSessionDeadline] = useState('')
     const [sessionDesc, setSessionDesc] = useState('')
+    const [allowExternal, setAllowExternal] = useState(false)
 
     // Detail modal
     const [showDetail, setShowDetail] = useState<string | null>(null)
@@ -40,6 +42,7 @@ export default function AttendancePage() {
 
     // QR modal states
     const [showQR, setShowQR] = useState<any>(null)
+    const [qrTab, setQrTab] = useState<'token' | 'link'>('token')
     const [generatingQR, setGeneratingQR] = useState(false)
 
     const canCreate = canPerformAction(currentUser, '/hr/attendance', 'create')
@@ -109,24 +112,49 @@ export default function AttendancePage() {
             setSessionDate(item.event_date || new Date().toISOString().split('T')[0])
             setSessionDesc(item.description || '')
         }
+        setTargetSessionId(null)
         setShowGenerate(false)
         setShowMemberSelect(true)
         setSelectedMembers([])
     }
 
     function toggleMember(id: string) {
-        setSelectedMembers(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
+        setSelectedMembers(prev => {
+            const exists = prev.find(m => m.id === id)
+            if (exists) return prev.filter(m => m.id !== id)
+            return [...prev, { id, role: 'Peserta' }]
+        })
+    }
+
+    function updateMemberRole(id: string, role: 'Peserta' | 'Panitia') {
+        setSelectedMembers(prev => prev.map(m => m.id === id ? { ...m, role } : m))
     }
 
     function toggleAll() {
         if (selectedMembers.length === members.length) {
             setSelectedMembers([])
         } else {
-            setSelectedMembers(members.map(m => m.id))
+            setSelectedMembers(members.map(m => ({ id: m.id, role: 'Peserta' })))
         }
     }
 
     async function createSession() {
+        if (targetSessionId) {
+            // Adding to existing session
+            const memberPayload = selectedMembers.map(m => ({
+                session_id: targetSessionId,
+                member_id: m.id,
+                role_type: m.role
+            }))
+            await supabase.from('attendance_session_members').upsert(memberPayload, { onConflict: 'session_id,member_id' })
+            loadSessionDetail(targetSessionId)
+            setShowMemberSelect(false)
+            setTargetSessionId(null)
+            setSelectedMembers([])
+            loadData()
+            return
+        }
+
         if (!sessionTitle || !sessionDate || selectedMembers.length === 0) {
             alert('Harap isi judul, tanggal, dan pilih minimal 1 anggota.')
             return
@@ -140,6 +168,7 @@ export default function AttendancePage() {
             event_date: sessionDate,
             deadline: sessionDeadline || null,
             created_by: currentUser?.id,
+            allow_external: allowExternal,
         }).select().single()
 
         if (error || !session) {
@@ -148,9 +177,10 @@ export default function AttendancePage() {
         }
 
         // Add members
-        const memberPayload = selectedMembers.map(memberId => ({
+        const memberPayload = selectedMembers.map(m => ({
             session_id: session.id,
-            member_id: memberId,
+            member_id: m.id,
+            role_type: m.role
         }))
         await supabase.from('attendance_session_members').insert(memberPayload)
 
@@ -173,7 +203,7 @@ export default function AttendancePage() {
 
     async function loadSessionDetail(sessionId: string) {
         const { data } = await supabase.from('attendance_session_members')
-            .select('*, member:members(id,full_name,department)')
+            .select('*, member:members(id,full_name,department,role)')
             .eq('session_id', sessionId)
             .order('member(full_name)')
         setSessionMembers(data || [])
@@ -332,7 +362,11 @@ export default function AttendancePage() {
                                         >
                                             <QrCode size={14} /> {s.qr_token ? 'QR Code' : 'Gen QR'}
                                         </button>
-                                        {/* Button temporarily removed due to missing function */}
+                                        {s.allow_external && (
+                                            <button className="btn btn-secondary btn-sm" onClick={() => window.open(`/check-in/external?sessionId=${s.id}`, '_blank')}>
+                                                <FileText size={14} /> Link Eksternal
+                                            </button>
+                                        )}
                                         {canCreate && (
                                             <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => deleteSession(s.id)}>
                                                 <Trash2 size={14} />
@@ -395,41 +429,66 @@ export default function AttendancePage() {
                         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
                             <div className="modal-header"><h2>Buat Sesi Kehadiran</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowMemberSelect(false)}><X size={18} /></button></div>
                             <div className="modal-body">
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                    <div className="form-group"><label className="form-label">Judul *</label><input className="form-input" value={sessionTitle} onChange={e => setSessionTitle(e.target.value)} /></div>
-                                    <div className="form-group"><label className="form-label">Tanggal *</label><input className="form-input" type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} /></div>
-                                </div>
-                                <div className="form-group"><label className="form-label">Deskripsi</label><input className="form-input" value={sessionDesc} onChange={e => setSessionDesc(e.target.value)} /></div>
-                                <div className="form-group"><label className="form-label">Batas Waktu Pengisian</label><input className="form-input" type="datetime-local" value={sessionDeadline} onChange={e => setSessionDeadline(e.target.value)} /></div>
+                                {!targetSessionId && (
+                                    <>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                            <div className="form-group"><label className="form-label">Judul *</label><input className="form-input" value={sessionTitle} onChange={e => setSessionTitle(e.target.value)} /></div>
+                                            <div className="form-group"><label className="form-label">Tanggal *</label><input className="form-input" type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} /></div>
+                                        </div>
+                                        <div className="form-group"><label className="form-label">Deskripsi</label><input className="form-input" value={sessionDesc} onChange={e => setSessionDesc(e.target.value)} /></div>
+                                        <div className="form-group"><label className="form-label">Batas Waktu Pengisian</label><input className="form-input" type="datetime-local" value={sessionDeadline} onChange={e => setSessionDeadline(e.target.value)} /></div>
+                                        <div className="form-group">
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+                                                <input type="checkbox" checked={allowExternal} onChange={e => setAllowExternal(e.target.checked)} />
+                                                Izinkan Check-in Eksternal (Link Publik)
+                                            </label>
+                                        </div>
+                                    </>
+                                )}
 
-                                <div style={{ borderTop: '1px solid var(--color-border-primary)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                                <div style={{ borderTop: targetSessionId ? 'none' : '1px solid var(--color-border-primary)', paddingTop: targetSessionId ? 0 : '1rem', marginTop: targetSessionId ? 0 : '0.5rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                                         <label className="form-label" style={{ margin: 0 }}>Pilih Anggota ({selectedMembers.length}/{members.length})</label>
                                         <button className="btn btn-secondary btn-sm" onClick={toggleAll}>
                                             <CheckSquare size={14} /> {selectedMembers.length === members.length ? 'Hapus Semua' : 'Pilih Semua'}
                                         </button>
                                     </div>
-                                    <div style={{ maxHeight: 250, overflowY: 'auto', border: '1px solid var(--color-border-primary)', borderRadius: 8, padding: '0.5rem' }}>
-                                        {members.map((m: any) => (
-                                            <label key={m.id} style={{
-                                                display: 'flex', alignItems: 'center', gap: '0.75rem',
-                                                padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: 6,
-                                                background: selectedMembers.includes(m.id) ? 'var(--color-brand-50)' : 'transparent',
-                                            }}>
-                                                <input type="checkbox" checked={selectedMembers.includes(m.id)} onChange={() => toggleMember(m.id)} />
-                                                <div>
-                                                    <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{m.full_name}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>{m.department} · {m.role}</div>
+                                    <div style={{ maxHeight: 350, overflowY: 'auto', border: '1px solid var(--color-border-primary)', borderRadius: 8, padding: '0.5rem' }}>
+                                        {members.map((m: any) => {
+                                            const selected = selectedMembers.find(sm => sm.id === m.id)
+                                            return (
+                                                <div key={m.id} style={{
+                                                    display: 'flex', alignItems: 'center', gap: '0.75rem',
+                                                    padding: '0.5rem 0.75rem', borderRadius: 6,
+                                                    background: selected ? 'var(--color-brand-50)' : 'transparent',
+                                                    marginBottom: 2
+                                                }}>
+                                                    <input type="checkbox" checked={!!selected} onChange={() => toggleMember(m.id)} />
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{m.full_name}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>{m.department} · {m.role}</div>
+                                                    </div>
+                                                    {selected && (
+                                                        <select 
+                                                            className="form-select" 
+                                                            style={{ width: 'auto', padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}
+                                                            value={selected.role}
+                                                            onChange={(e) => updateMemberRole(m.id, e.target.value as any)}
+                                                        >
+                                                            <option value="Peserta">Peserta</option>
+                                                            <option value="Panitia">Panitia</option>
+                                                        </select>
+                                                    )}
                                                 </div>
-                                            </label>
-                                        ))}
+                                            )
+                                        })}
                                     </div>
                                 </div>
                             </div>
                             <div className="modal-footer">
                                 <button className="btn btn-secondary" onClick={() => setShowMemberSelect(false)}>Batal</button>
-                                <button className="btn btn-primary" onClick={createSession} disabled={selectedMembers.length === 0 || !sessionTitle || !sessionDate}>
-                                    <Plus size={16} /> Buat Sesi ({selectedMembers.length} anggota)
+                                <button className="btn btn-primary" onClick={createSession} disabled={selectedMembers.length === 0 || (!targetSessionId && (!sessionTitle || !sessionDate))}>
+                                    <Plus size={16} /> {targetSessionId ? 'Tambah Terpilih' : 'Buat Sesi'} ({selectedMembers.length})
                                 </button>
                             </div>
                         </div>
@@ -440,7 +499,23 @@ export default function AttendancePage() {
                 {showDetail && (
                     <div className="modal-overlay" onClick={() => setShowDetail(null)}>
                         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
-                            <div className="modal-header"><h2>Detail Kehadiran</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowDetail(null)}><X size={18} /></button></div>
+                            <div className="modal-header">
+                                <div>
+                                    <h2 style={{ marginBottom: 4 }}>Detail Kehadiran</h2>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>{sessions.find(s => s.id === showDetail)?.title}</div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button className="btn btn-primary btn-sm" onClick={() => {
+                                        setTargetSessionId(showDetail);
+                                        const existingIds = sessionMembers.map(sm => sm.member_id);
+                                        setSelectedMembers(sessionMembers.map(sm => ({ id: sm.member_id, role: sm.role_type || 'Peserta' })));
+                                        setShowMemberSelect(true);
+                                    }}>
+                                        <Plus size={14} /> Tambah Anggota
+                                    </button>
+                                    <button className="btn btn-ghost btn-icon" onClick={() => setShowDetail(null)}><X size={18} /></button>
+                                </div>
+                            </div>
                             <div className="modal-body">
                                 {/* Stats */}
                                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
@@ -464,12 +539,20 @@ export default function AttendancePage() {
                                 ) : (
                                     <div className="data-table-container">
                                         <table className="data-table">
-                                            <thead><tr><th>Nama</th><th>Bidang</th><th>Status</th>{canCreate && <th>Ubah</th>}</tr></thead>
+                                            <thead><tr><th>Nama</th><th>Peran</th><th>Status</th>{canCreate && <th>Ubah</th>}</tr></thead>
                                             <tbody>
                                                 {sessionMembers.map((m: any) => (
                                                     <tr key={m.id}>
-                                                        <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{m.member?.full_name}</td>
-                                                        <td style={{ fontSize: '0.8125rem', color: '#64748b', whiteSpace: 'nowrap' }}>{m.member?.department || '-'}</td>
+                                                        <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
+                                                            {m.member?.full_name || m.external_name}
+                                                            {m.is_external && <span className="badge badge-secondary" style={{ fontSize: '0.625rem', marginLeft: 6 }}>EKSTERNAL</span>}
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{m.member?.department || m.external_org || '-'}</div>
+                                                        </td>
+                                                        <td>
+                                                            <span className={`badge ${m.role_type === 'Panitia' ? 'badge-primary' : 'badge-ghost'}`} style={{ fontSize: '0.625rem' }}>
+                                                                {m.role_type || 'Peserta'}
+                                                            </span>
+                                                        </td>
                                                         <td>
                                                             <span style={{
                                                                 display: 'inline-block', padding: '0.15rem 0.5rem', borderRadius: 6,
@@ -575,35 +658,71 @@ export default function AttendancePage() {
                 )}
                 {/* QR Display Modal */}
                 {showQR && (
-                    <div className="modal-overlay" onClick={() => setShowQR(null)}>
-                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 400, textAlign: 'center' }}>
+                    <div className="modal-overlay" onClick={() => { setShowQR(null); setQrTab('token'); }}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 450, textAlign: 'center' }}>
                             <div className="modal-header">
                                 <h2>QR Code Kehadiran</h2>
-                                <button className="btn btn-ghost btn-icon" onClick={() => setShowQR(null)}><X size={18} /></button>
+                                <button className="btn btn-ghost btn-icon" onClick={() => { setShowQR(null); setQrTab('token'); }}><X size={18} /></button>
                             </div>
-                            <div className="modal-body" style={{ padding: '2rem' }}>
+                            <div className="modal-body" style={{ padding: '1.5rem' }}>
+                                {/* QR Type Tabs */}
+                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '0.75rem' }}>
+                                    <button 
+                                        className="btn btn-sm" 
+                                        style={{ flex: 1, borderRadius: '0.5rem', background: qrTab === 'token' ? 'white' : 'transparent', boxShadow: qrTab === 'token' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', color: qrTab === 'token' ? 'var(--color-brand-600)' : '#64748b', fontWeight: qrTab === 'token' ? 700 : 500 }}
+                                        onClick={() => setQrTab('token')}
+                                    >
+                                        QR Presence
+                                    </button>
+                                    <button 
+                                        className="btn btn-sm" 
+                                        style={{ flex: 1, borderRadius: '0.5rem', background: qrTab === 'link' ? 'white' : 'transparent', boxShadow: qrTab === 'link' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', color: qrTab === 'link' ? 'var(--color-brand-600)' : '#64748b', fontWeight: qrTab === 'link' ? 700 : 500 }}
+                                        onClick={() => setQrTab('link')}
+                                    >
+                                        QR Link Publik
+                                    </button>
+                                </div>
+
                                 <div style={{ 
                                     background: 'white', 
                                     padding: '1.5rem', 
                                     borderRadius: '1.5rem', 
                                     display: 'inline-block',
                                     boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
-                                    marginBottom: '1.5rem'
+                                    marginBottom: '1rem',
+                                    border: '1px solid #f1f5f9'
                                 }}>
                                     <QRCodeCanvas 
-                                        value={showQR.qr_token} 
+                                        value={qrTab === 'token' ? showQR.qr_token : `${window.location.origin}/check-in/external?sessionId=${showQR.id}`} 
                                         size={240}
                                         level="H"
                                         includeMargin={false}
                                     />
                                 </div>
                                 <h3 style={{ fontWeight: 700, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{showQR.title}</h3>
-                                <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.5rem' }}>
-                                    Anggota dapat melakukan scan pada QR ini melalui menu "Kehadiran Saya" untuk melakukan check-in otomatis.
-                                </p>
-                                <button className="btn btn-secondary btn-block" onClick={() => window.print()}>
-                                    Cetak QR
-                                </button>
+                                
+                                {qrTab === 'token' ? (
+                                    <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.5rem' }}>
+                                        Anggota dapat melakukan scan pada QR ini melalui menu <strong>"Kehadiran Saya"</strong> untuk melakukan check-in otomatis.
+                                    </p>
+                                ) : (
+                                    <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.5rem' }}>
+                                        Scan dengan kamera HP untuk membuka <strong>Link Check-in Publik</strong>. Cocok untuk tamu eksternal.
+                                    </p>
+                                )}
+
+                                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => {
+                                        const url = qrTab === 'token' ? showQR.qr_token : `${window.location.origin}/check-in/external?sessionId=${showQR.id}`;
+                                        navigator.clipboard.writeText(url);
+                                        alert('Link berhasil disalin!');
+                                    }}>
+                                        Salin Link
+                                    </button>
+                                    <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => window.print()}>
+                                        Cetak QR
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

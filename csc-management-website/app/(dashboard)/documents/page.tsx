@@ -139,14 +139,14 @@ function DocumentsContent() {
                                 filtered.length === 0 ? <tr><td colSpan={8}><div className="empty-state"><FileStack size={48} /><h3>Belum ada dokumen</h3></div></td></tr> :
                                     filtered.map((d: any) => (
                                         <tr key={d.id}>
-                                            <td style={{ fontFamily: 'monospace', fontSize: '0.8125rem' }}>{d.document_number || '-'}</td>
-                                            <td style={{ fontWeight: 500 }}>{d.title}</td>
-                                            <td><span className={`badge ${d.type === 'incoming' ? 'badge-info' : 'badge-success'}`}>{d.type === 'incoming' ? '↓ Masuk' : '↑ Keluar'}</span></td>
-                                            <td>{d.type === 'incoming' ? d.sender : d.recipient || '-'}</td>
-                                            <td>{formatDateShort(d.document_date)}</td>
-                                            <td>{d.handler?.full_name || '-'}</td>
-                                            <td><span className={`badge badge-${getStatusColor(d.status)}`}>{getStatusLabel(d.status)}</span></td>
-                                            <td>
+                                            <td data-label="No. Surat" style={{ fontFamily: 'monospace', fontSize: '0.8125rem' }}>{d.document_number || '-'}</td>
+                                            <td data-label="Judul" style={{ fontWeight: 500 }}>{d.title}</td>
+                                            <td data-label="Tipe"><span className={`badge ${d.type === 'incoming' ? 'badge-info' : 'badge-success'}`}>{d.type === 'incoming' ? '↓ Masuk' : '↑ Keluar'}</span></td>
+                                            <td data-label="Pengirim/Penerima">{d.type === 'incoming' ? d.sender : d.recipient || '-'}</td>
+                                            <td data-label="Tanggal">{formatDateShort(d.document_date)}</td>
+                                            <td data-label="Handler">{d.handler?.full_name || '-'}</td>
+                                            <td data-label="Status"><span className={`badge badge-${getStatusColor(d.status)}`}>{getStatusLabel(d.status)}</span></td>
+                                            <td data-label="Aksi">
                                                 <div style={{ display: 'flex', gap: 4 }}>
                                                     <button className="btn btn-ghost btn-icon btn-sm" title="Lihat Detail" onClick={() => setShowDetail(d)}><Eye size={16} /></button>
                                                     <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-primary)' }} onClick={() => router.push(`/admin-review?docId=${d.id}`)}>Review</button>

@@ -7,6 +7,7 @@ import { canPerformAction } from '@/lib/rbac'
 import { Trophy, Plus, Search, X, Upload, Download, FileText, ChevronLeft, ChevronRight, Calculator } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
 import { exportToPdf, exportToCsv } from '@/lib/export'
+import { getInitials } from '@/lib/utils'
 
 const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4']
 const MONTHS = [
@@ -57,7 +58,7 @@ export default function PerformancePage() {
     async function loadData() {
         setLoading(true)
         const { data: r, error: rErr } = await supabase.from('performance_rankings')
-            .select('*, member:members!performance_rankings_member_id_fkey(id,full_name,email,department,role)')
+            .select('*, member:members!performance_rankings_member_id_fkey(id,full_name,email,department,role,photo_url)')
             .order('score', { ascending: false })
         const { data: m } = await supabase.from('members')
             .select('id,full_name')
@@ -355,32 +356,81 @@ export default function PerformancePage() {
 
                 {/* Podium Top 3 */}
                 {!loading && filtered.length >= 3 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                        {[filtered[1], filtered[0], filtered[2]].map((r: any, i: number) => {
-                            const medals = [{ emoji: '🥈', color: '#94a3b8', height: 80 }, { emoji: '🥇', color: '#f59e0b', height: 100 }, { emoji: '🥉', color: '#cd7f32', height: 60 }]
-                            const medal = medals[i]
-                            if (!r) return <div key={i} />
-                            return (
-                                <div key={r.id} className="card" style={{
-                                    textAlign: 'center',
-                                    borderTop: `3px solid ${medal.color}`,
-                                    paddingBottom: '1.25rem',
-                                }}>
-                                    <div style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>{medal.emoji}</div>
-                                    <div style={{ fontWeight: 700, fontSize: '1rem', color: '#292524' }}>{r.member?.full_name}</div>
-                                    <div style={{ fontSize: '0.75rem', color: '#78716c', marginBottom: '0.75rem' }}>{r.member?.department}</div>
-                                    <div style={{
-                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                        width: 64, height: 64, borderRadius: '50%',
-                                        background: getScoreBg(r.score),
-                                        margin: '0 auto 0.5rem',
-                                    }}>
-                                        <span style={{ fontSize: '1.5rem', fontWeight: 800, color: getScoreColor(r.score) }}>{r.score}</span>
-                                    </div>
-                                    <div style={{ fontSize: '0.6875rem', color: '#a8a29e' }}>dari 100 poin</div>
+                    <div className="podium-grid" style={{ alignItems: 'flex-end', gap: '1.5rem', marginBottom: '3rem', marginTop: '1rem' }}>
+                        {/* 2nd Place */}
+                        {filtered[1] && (
+                            <div className="podium-card" style={{ borderTopColor: '#94a3b8', padding: '1.5rem 1rem', position: 'relative' }}>
+                                <div style={{ position: 'absolute', top: 0, right: 0, padding: '4px 8px', background: '#94a3b8', color: 'white', fontSize: '0.625rem', fontWeight: 800, borderBottomLeftRadius: 8 }}>#2</div>
+                                <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#f1f5f9', border: '2px solid #94a3b8', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                    {filtered[1].member?.photo_url ? (
+                                        <img src={filtered[1].member.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <span style={{ fontWeight: 700, color: '#64748b', fontSize: '1rem' }}>{getInitials(filtered[1].member?.full_name)}</span>
+                                    )}
                                 </div>
-                            )
-                        })}
+                                <div className="podium-info">
+                                    <div className="podium-name" style={{ fontWeight: 700 }}>{filtered[1].member?.full_name}</div>
+                                    <div className="podium-dept" style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>{filtered[1].member?.department}</div>
+                                </div>
+                                <div className="podium-score-wrapper" style={{ background: '#f1f5f9', marginTop: '1rem', width: 48, height: 48 }}>
+                                    <span className="podium-score" style={{ color: '#64748b', fontWeight: 700 }}>{filtered[1].score}</span>
+                                </div>
+                                <div className="podium-unit">poin</div>
+                            </div>
+                        )}
+
+                        {/* 1st Place */}
+                        {filtered[0] && (
+                            <div className="podium-card gold-podium" style={{ 
+                                padding: '3rem 1.5rem', 
+                                transform: 'scale(1.1)', 
+                                zIndex: 10,
+                                position: 'relative',
+                                background: 'linear-gradient(to bottom, #fffcf0, #ffffff)',
+                                borderTopWidth: 8,
+                                borderTopColor: '#f59e0b',
+                                boxShadow: '0 25px 30px -10px rgba(245, 158, 11, 0.2)'
+                            }}>
+                                <div style={{ position: 'absolute', top: 0, right: 0, padding: '6px 12px', background: '#f59e0b', color: 'white', fontSize: '0.75rem', fontWeight: 900, borderBottomLeftRadius: 10 }}>#1</div>
+                                <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#fffbeb', border: '4px solid #f59e0b', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', boxShadow: '0 0 20px rgba(245, 158, 11, 0.3)' }}>
+                                    {filtered[0].member?.photo_url ? (
+                                        <img src={filtered[0].member.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <span style={{ fontWeight: 800, color: '#f59e0b', fontSize: '1.5rem' }}>{getInitials(filtered[0].member?.full_name)}</span>
+                                    )}
+                                </div>
+                                <div className="podium-info">
+                                    <div className="podium-name" style={{ fontSize: '1.125rem', fontWeight: 800, color: '#92400e' }}>{filtered[0].member?.full_name}</div>
+                                    <div className="podium-dept" style={{ fontSize: '0.875rem', color: '#b45309', fontWeight: 500 }}>{filtered[0].member?.department}</div>
+                                </div>
+                                <div className="podium-score-wrapper" style={{ background: '#f59e0b', marginTop: '1.25rem', width: 64, height: 64, boxShadow: '0 4px 10px rgba(245, 158, 11, 0.3)' }}>
+                                    <span className="podium-score" style={{ color: 'white', fontWeight: 900, fontSize: '1.25rem' }}>{filtered[0].score}</span>
+                                </div>
+                                <div className="podium-unit" style={{ color: '#b45309', fontWeight: 600 }}>poin</div>
+                            </div>
+                        )}
+
+                        {/* 3rd Place */}
+                        {filtered[2] && (
+                            <div className="podium-card" style={{ borderTopColor: '#b45309', padding: '1.5rem 1rem', position: 'relative' }}>
+                                <div style={{ position: 'absolute', top: 0, right: 0, padding: '4px 8px', background: '#b45309', color: 'white', fontSize: '0.625rem', fontWeight: 800, borderBottomLeftRadius: 8 }}>#3</div>
+                                <div style={{ width: 52, height: 52, borderRadius: '50%', background: '#fff7ed', border: '2px solid #b45309', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                    {filtered[2].member?.photo_url ? (
+                                        <img src={filtered[2].member.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <span style={{ fontWeight: 700, color: '#b45309', fontSize: '1rem' }}>{getInitials(filtered[2].member?.full_name)}</span>
+                                    )}
+                                </div>
+                                <div className="podium-info">
+                                    <div className="podium-name" style={{ fontWeight: 700 }}>{filtered[2].member?.full_name}</div>
+                                    <div className="podium-dept" style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>{filtered[2].member?.department}</div>
+                                </div>
+                                <div className="podium-score-wrapper" style={{ background: '#fff7ed', marginTop: '1rem', width: 44, height: 44, border: '1px solid #ffedd5' }}>
+                                    <span className="podium-score" style={{ color: '#b45309', fontWeight: 700 }}>{filtered[2].score}</span>
+                                </div>
+                                <div className="podium-unit">poin</div>
+                            </div>
+                        )}
                     </div>
                 )}
 

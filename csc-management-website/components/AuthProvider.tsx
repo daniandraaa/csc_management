@@ -17,7 +17,12 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     }, [])
 
     useEffect(() => {
-        if (!loading && !currentUser && pathname !== '/login' && pathname !== '/check-in' && pathname !== '/track') {
+        if (!loading && !currentUser && 
+            pathname !== '/login' && 
+            !pathname.startsWith('/check-in') && 
+            !pathname.startsWith('/track') &&
+            !pathname.startsWith('/order-monitoring')
+        ) {
             router.push('/login')
         }
     }, [loading, currentUser, pathname, router])

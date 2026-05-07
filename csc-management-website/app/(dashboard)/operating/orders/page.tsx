@@ -166,16 +166,18 @@ export default function OrderMonitoringPage() {
                                 filtered.length === 0 ? <tr><td colSpan={7}><div className="empty-state"><ClipboardList size={48} /><h3>Belum ada order</h3></div></td></tr> :
                                     filtered.map((o: any) => (
                                         <tr key={o.id}>
-                                            <td style={{ fontWeight: 600, fontFamily: 'monospace', color: 'var(--color-brand-500)' }}>{o.tracking_code}</td>
-                                            <td style={{ fontWeight: 500 }}>{o.client_name}</td>
-                                            <td>
-                                                <div style={{ fontWeight: 500 }}>{o.project_title}</div>
-                                                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.description}</div>
+                                            <td data-label="Resi / Kode" style={{ fontWeight: 600, fontFamily: 'monospace', color: 'var(--color-brand-500)' }}>{o.tracking_code}</td>
+                                            <td data-label="Klien" style={{ fontWeight: 500 }}>{o.client_name}</td>
+                                            <td data-label="Pekerjaan">
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                    <div style={{ fontWeight: 600 }}>{o.project_title}</div>
+                                                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.description}</div>
+                                                </div>
                                             </td>
-                                            <td><span className={`badge badge-${getStatusColor(o.status)}`}>{getStatusLabel(o.status)}</span></td>
-                                            <td>{o.handler?.full_name || '-'}</td>
-                                            <td>{formatDateShort(o.created_at)}</td>
-                                            <td>
+                                            <td data-label="Status"><span className={`badge badge-${getStatusColor(o.status)}`}>{getStatusLabel(o.status)}</span></td>
+                                            <td data-label="PIC Operating">{o.handler?.full_name || '-'}</td>
+                                            <td data-label="Tanggal Masuk">{formatDateShort(o.created_at)}</td>
+                                            <td data-label="Aksi">
                                                 <div style={{ display: 'flex', gap: '0.25rem' }}>
                                                     <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ client_name: o.client_name, project_title: o.project_title, description: o.description || '', status: o.status, operating_notes: o.operating_notes || '', handled_by: o.handled_by || '' }); setEditId(o.id); setShowModal(true) }}>Kelola</button>
                                                     <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(o.id)}>Hapus</button>

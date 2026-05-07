@@ -85,15 +85,15 @@ export default function MailPage() {
                                 mails.length === 0 ? <tr><td colSpan={7}><div className="empty-state"><Newspaper size={48} /><h3>Belum ada surat masuk</h3></div></td></tr> :
                                     mails.map((m: any) => (
                                         <tr key={m.id} style={{ background: m.status === 'unread' ? 'var(--color-surface-tertiary)' : undefined, fontWeight: m.status === 'unread' ? 500 : 400 }}>
-                                            <td>{m.sender}</td>
-                                            <td>{m.subject}</td>
-                                            <td><span className="badge badge-default">{typeLabels[m.mail_type]}</span></td>
-                                            <td>{formatDateShort(m.received_date)}</td>
-                                            <td>{m.handler?.full_name || '-'}</td>
-                                            <td><span className={`badge badge-${getStatusColor(m.status)}`}>{getStatusLabel(m.status)}</span></td>
-                                            <td><button className="btn btn-ghost btn-sm" onClick={() => { setForm({ sender: m.sender, subject: m.subject, description: m.description || '', received_date: m.received_date, mail_type: m.mail_type, file_url: m.file_url || '', status: m.status, handled_by: m.handled_by || '', notes: m.notes || '' }); setEditId(m.id); setShowModal(true) }}>Edit</button></td>
+                                            <td data-label="Pengirim">{m.sender}</td>
+                                            <td data-label="Subjek">{m.subject}</td>
+                                            <td data-label="Tipe"><span className="badge badge-default">{typeLabels[m.mail_type]}</span></td>
+                                            <td data-label="Tanggal">{formatDateShort(m.received_date)}</td>
+                                            <td data-label="Handler">{m.handler?.full_name || '-'}</td>
+                                            <td data-label="Status"><span className={`badge badge-${getStatusColor(m.status)}`}>{getStatusLabel(m.status)}</span></td>
+                                            <td data-label="Aksi"><button className="btn btn-ghost btn-sm" onClick={() => { setForm({ sender: m.sender, subject: m.subject, description: m.description || '', received_date: m.received_date, mail_type: m.mail_type, file_url: m.file_url || '', status: m.status, handled_by: m.handled_by || '', notes: m.notes || '' }); setEditId(m.id); setShowModal(true) }}>Edit</button></td>
                                         </tr>
-                                    ))}
+                                     ))}
                         </tbody>
                     </table>
                 </div>
