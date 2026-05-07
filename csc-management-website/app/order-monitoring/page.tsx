@@ -99,7 +99,7 @@ export default function OrderMonitoringPublicPage() {
                         <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <Search size={20} style={{ color: '#9A3412' }} /> Lacak dengan Kode Resi
                         </h2>
-                        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.75rem' }}>
+                        <form onSubmit={handleSearch} className="search-form" style={{ display: 'flex', gap: '0.75rem' }}>
                             <input
                                 type="text"
                                 placeholder="Masukkan Kode (Contoh: ORD-X1Y2Z3)"
@@ -245,6 +245,14 @@ export default function OrderMonitoringPublicPage() {
                 @keyframes fadeIn {
                     from { opacity: 0; }
                     to { opacity: 1; }
+                }
+                @media (max-width: 480px) {
+                    .search-form {
+                        flex-direction: column;
+                    }
+                    .search-form button {
+                        padding: 0.875rem !important;
+                    }
                 }
             `}</style>
         </div>
