@@ -11,6 +11,7 @@ export interface CurrentUser {
     department: string
     position: string | null
     photo_url: string | null
+    whatsapp: string | null
 }
 
 interface AuthContextType {
@@ -37,7 +38,7 @@ export { AuthContext }
 export async function loginUser(memberId: string): Promise<CurrentUser | null> {
     const { data } = await supabase
         .from('members')
-        .select('id, full_name, email, role, department, position, photo_url')
+        .select('id, full_name, email, role, department, position, photo_url, whatsapp')
         .eq('id', memberId)
         .single()
 
@@ -50,6 +51,7 @@ export async function loginUser(memberId: string): Promise<CurrentUser | null> {
             department: data.department,
             position: data.position,
             photo_url: data.photo_url,
+            whatsapp: data.whatsapp,
         }
         localStorage.setItem('csc_current_user', JSON.stringify(user))
         return user

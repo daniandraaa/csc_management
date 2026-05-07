@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, User, Building, AlertCircle, Loader2, QrCode, Camera } from 'lucide-react'
+import { CheckCircle2, User, Building, AlertCircle, Loader2, QrCode, Camera, Upload, Image as ImageIcon } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
 
 function ExternalCheckInContent() {
@@ -20,6 +20,13 @@ function ExternalCheckInContent() {
     const [org, setOrg] = useState('')
     const [step, setStep] = useState<'form' | 'scanner' | 'success'>('form')
     const [scannerActive, setScannerActive] = useState(false)
+    const [processingFile, setProcessingFile] = useState(false)
+    
+    // New fields
+    const [userType, setUserType] = useState<'mahasiswa' | 'eksternal'>('mahasiswa')
+    const [nim, setNim] = useState('')
+    const [faculty, setFaculty] = useState('')
+    const [major, setMajor] = useState('')
 
     useEffect(() => {
         if (sessionId) {
@@ -99,6 +106,30 @@ function ExternalCheckInContent() {
             }
         };
     }, [step, scannerActive, session])
+    
+    async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0]
+        if (!file || !session) return
+        
+        setProcessingFile(true)
+        // We create a temporary reader div or just use a dummy id if library allows
+        // html5-qrcode scanFile doesn't strictly need a visible element but it's good practice
+        const html5QrCode = new Html5Qrcode("reader")
+        
+        try {
+            const decodedText = await html5QrCode.scanFile(file, true)
+            if (decodedText === session.qr_token) {
+                submitCheckIn()
+            } else {
+                alert("QR Code dalam gambar tidak valid untuk sesi ini. Pastikan Anda mengunggah QR Code yang benar.")
+                setProcessingFile(false)
+            }
+        } catch (err) {
+            console.error("Gagal men-scan file:", err)
+            alert("Tidak dapat mendeteksi QR Code pada gambar ini. Pastikan gambar cukup jelas dan fokus pada QR Code.")
+            setProcessingFile(false)
+        }
+    }
 
     async function submitCheckIn() {
         setSubmitting(true)
@@ -106,7 +137,11 @@ function ExternalCheckInContent() {
             session_id: sessionId,
             is_external: true,
             external_name: name,
-            external_org: org,
+            external_org: userType === 'mahasiswa' ? 'Telkom University' : org,
+            external_nim: userType === 'mahasiswa' ? nim : null,
+            external_faculty: userType === 'mahasiswa' ? faculty : null,
+            external_major: userType === 'mahasiswa' ? major : null,
+            external_type: userType === 'mahasiswa' ? 'Mahasiswa Telkom' : 'Eksternal',
             status: 'present',
             responded_at: new Date().toISOString()
         })
@@ -175,12 +210,40 @@ function ExternalCheckInContent() {
                     </div>
                     <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.5rem' }}>{session.title}</h1>
                     <p style={{ color: '#64748b', fontSize: '0.875rem' }}>
-                        {step === 'form' ? (session.description || 'Silakan isi data diri Anda untuk melakukan absensi.') : 'Scan QR Code kehadiran yang ditampilkan oleh panitia untuk mengonfirmasi kehadiran Anda.'}
+                        {step === 'form' ? (session.description || 'Silakan isi data diri Anda untuk melakukan absensi.') : 'Scan QR Code kehadiran menggunakan kamera atau unggah gambar QR Code yang diberikan panitia.'}
                     </p>
                 </div>
 
                 {step === 'form' ? (
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                        {/* User Type Toggle */}
+                        <div style={{ display: 'flex', background: '#f1f5f9', padding: '0.25rem', borderRadius: '0.75rem', marginBottom: '0.5rem' }}>
+                            <button 
+                                type="button"
+                                onClick={() => setUserType('mahasiswa')}
+                                style={{ 
+                                    flex: 1, padding: '0.5rem', borderRadius: '0.6rem', fontSize: '0.8125rem', fontWeight: 600, border: 'none',
+                                    background: userType === 'mahasiswa' ? 'white' : 'transparent',
+                                    color: userType === 'mahasiswa' ? 'var(--color-brand-600)' : '#64748b',
+                                    boxShadow: userType === 'mahasiswa' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                                }}
+                            >
+                                Mahasiswa Telkom
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setUserType('eksternal')}
+                                style={{ 
+                                    flex: 1, padding: '0.5rem', borderRadius: '0.6rem', fontSize: '0.8125rem', fontWeight: 600, border: 'none',
+                                    background: userType === 'eksternal' ? 'white' : 'transparent',
+                                    color: userType === 'eksternal' ? 'var(--color-brand-600)' : '#64748b',
+                                    boxShadow: userType === 'eksternal' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                                }}
+                            >
+                                Eksternal
+                            </button>
+                        </div>
+
                         <div className="form-group">
                             <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <User size={14} /> Nama Lengkap *
@@ -194,22 +257,66 @@ function ExternalCheckInContent() {
                                 style={{ padding: '0.75rem 1rem' }}
                             />
                         </div>
-                        <div className="form-group">
-                            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Building size={14} /> Institusi / Organisasi
-                            </label>
-                            <input 
-                                className="form-input" 
-                                placeholder="Contoh: Universitas Telkom" 
-                                value={org} 
-                                onChange={e => setOrg(e.target.value)}
-                                style={{ padding: '0.75rem 1rem' }}
-                            />
-                        </div>
+
+                        {userType === 'mahasiswa' ? (
+                            <>
+                                <div className="form-group">
+                                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <QrCode size={14} /> NIM *
+                                    </label>
+                                    <input 
+                                        className="form-input" 
+                                        placeholder="Contoh: 130121XXXX" 
+                                        required 
+                                        value={nim} 
+                                        onChange={e => setNim(e.target.value)}
+                                        style={{ padding: '0.75rem 1rem' }}
+                                    />
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Fakultas *</label>
+                                        <input 
+                                            className="form-input" 
+                                            placeholder="cth: FIF" 
+                                            required 
+                                            value={faculty} 
+                                            onChange={e => setFaculty(e.target.value)}
+                                            style={{ padding: '0.75rem 1rem' }}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Jurusan *</label>
+                                        <input 
+                                            className="form-input" 
+                                            placeholder="cth: S1 IF" 
+                                            required 
+                                            value={major} 
+                                            onChange={e => setMajor(e.target.value)}
+                                            style={{ padding: '0.75rem 1rem' }}
+                                        />
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="form-group">
+                                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Building size={14} /> Institusi / Organisasi *
+                                </label>
+                                <input 
+                                    className="form-input" 
+                                    placeholder="Contoh: Universitas Gadjah Mada" 
+                                    required
+                                    value={org} 
+                                    onChange={e => setOrg(e.target.value)}
+                                    style={{ padding: '0.75rem 1rem' }}
+                                />
+                            </div>
+                        )}
                         <button 
                             type="submit" 
                             className="btn btn-primary" 
-                            disabled={submitting || !name}
+                            disabled={submitting || !name || (userType === 'mahasiswa' && (!nim || !faculty || !major)) || (userType === 'eksternal' && !org)}
                             style={{ marginTop: '0.5rem', padding: '0.875rem', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                         >
                             Lanjut: Scan QR <QrCode size={18} />
@@ -219,10 +326,30 @@ function ExternalCheckInContent() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                         <div id="reader" style={{ width: '100%', overflow: 'hidden', borderRadius: '1rem', border: '1px solid #e2e8f0', background: '#000', minHeight: '300px' }}></div>
                         <div style={{ textAlign: 'center' }}>
-                            <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1rem' }}>Membuka kamera...</p>
-                            <button className="btn btn-ghost" onClick={() => setStep('form')} style={{ color: '#64748b' }}>
-                                Kembali ke Form
-                            </button>
+                            {processingFile ? (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: 'var(--color-brand-600)', marginBottom: '1rem', fontWeight: 600 }}>
+                                    <Loader2 className="animate-spin" size={18} /> Memproses Gambar...
+                                </div>
+                            ) : (
+                                <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1rem' }}>Membuka kamera...</p>
+                            )}
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                <label className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                    <ImageIcon size={18} /> Unggah Gambar QR
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        style={{ display: 'none' }} 
+                                        onChange={handleFileUpload}
+                                        disabled={processingFile || submitting}
+                                    />
+                                </label>
+                                
+                                <button className="btn btn-ghost" onClick={() => setStep('form')} style={{ color: '#64748b' }}>
+                                    Kembali ke Form
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

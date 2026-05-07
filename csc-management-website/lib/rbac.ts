@@ -4,6 +4,7 @@ import { CurrentUser } from './auth'
 const ROLE_LEVEL: Record<string, number> = {
     'BOE': 100,
     'C Level': 80,
+    'Manager': 70,
     'Secretary': 60,
     'Administration': 50,
     'Staff': 30,
@@ -26,132 +27,143 @@ interface PagePermission {
 
 const PAGE_PERMISSIONS: PagePermission[] = [
     // Overview — everyone
-    { path: '/dashboard', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
+    { path: '/dashboard', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
     {
-        path: '/members', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary'], delete: ['BOE'] }
+        path: '/members', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary'], delete: ['BOE'] }
     },
     {
-        path: '/timeline', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], delete: ['BOE', 'C Level', 'Secretary'] }
+        path: '/timeline', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], delete: ['BOE', 'C Level', 'Manager', 'Secretary'] }
     },
     // Overview — shared pages
-    { path: '/overview/sop', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
-    { path: '/overview/performance', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
+    { path: '/overview/sop', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
+    { path: '/overview/performance', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
     {
-        path: '/overview/logbook', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], delete: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'] }
+        path: '/overview/logbook', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], delete: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'] }
     },
-    { path: '/overview/evaluations', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
-    { path: '/overview/kpi', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
+    { path: '/overview/evaluations', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
+    { path: '/overview/kpi', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
     {
-        path: '/overview/advocacy', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'] }
-    },
-    {
-        path: '/overview/content-request', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'] }
+        path: '/overview/advocacy', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'] }
     },
     {
-        path: '/overview/my-attendance', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'] }
+        path: '/overview/content-request', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'] }
+    },
+    {
+        path: '/overview/my-attendance', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'] }
     },
 
     // Human Resources
     {
-        path: '/hr/performance', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'C Level'], delete: ['BOE', 'C Level'] }
+        path: '/hr/performance', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], approve: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/hr/advocacy', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'C Level'] }
+        path: '/hr/advocacy', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], approve: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/hr/counseling', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'C Level'] }
+        path: '/hr/counseling', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], approve: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/hr/logbook', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'] }
+        path: '/hr/logbook', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'] }
     },
     {
-        path: '/hr/attendance', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level'], approve: ['BOE', 'C Level'] }
+        path: '/hr/attendance', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager'], approve: ['BOE', 'C Level', 'Manager'] }
     },
 
-    // Operating
     {
-        path: '/operating/programs', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level'], approve: ['BOE', 'C Level'], delete: ['BOE', 'C Level'] }
+        path: '/operating/programs', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Staff'], approve: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/operating/kpi', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level'], approve: ['BOE', 'C Level'] }
+        path: '/operating/broadcasts', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Staff'], delete: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/operating/evaluations', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level'], approve: ['BOE', 'C Level'] }
+        path: '/operating/editorial', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Staff'], delete: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/operating/sop', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary'], delete: ['BOE', 'C Level'] }
+        path: '/operating/directory', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Staff'], delete: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/operating/orders', roles: ['BOE', 'C Level', 'Secretary', 'Staff', 'Business Partner'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level'], delete: ['BOE', 'C Level'] }
+        path: '/operating/kpi', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager'], approve: ['BOE', 'C Level', 'Manager'] }
+    },
+    {
+        path: '/operating/evaluations', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager'], approve: ['BOE', 'C Level', 'Manager'] }
+    },
+    {
+        path: '/operating/sop', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary'], delete: ['BOE', 'C Level', 'Manager'] }
+    },
+    {
+        path: '/operating/orders', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff', 'Business Partner'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
     },
 
     // Finance
     {
-        path: '/finance/reimbursement', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'C Level'] }
+        path: '/finance/reimbursement', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], approve: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/finance/transactions', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level'], delete: ['BOE', 'C Level'] }
+        path: '/finance/transactions', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
     },
 
     // Business
     {
-        path: '/business/partners', roles: ['BOE', 'C Level', 'Secretary', 'Staff', 'Business Partner'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level'], delete: ['BOE', 'C Level'] }
+        path: '/business/partners', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff', 'Business Partner'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
     },
-    { path: '/business/overview', roles: ['BOE', 'C Level', 'Secretary', 'Staff', 'Business Partner'], departments: ['all'] },
+    { path: '/business/overview', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff', 'Business Partner'], departments: ['all'] },
 
     // Marketing
     {
-        path: '/marketing/content', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'C Level'], delete: ['BOE', 'C Level'] }
+        path: '/marketing/content', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], approve: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/marketing/media-partners', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level'], delete: ['BOE', 'C Level'] }
+        path: '/marketing/media-partners', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/marketing/mail', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'] }
+        path: '/marketing/mail', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'] }
     },
     {
-        path: '/marketing/invitations', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'C Level'] }
+        path: '/marketing/invitations', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], approve: ['BOE', 'C Level', 'Manager'] }
     },
 
     // Administrasi
     {
-        path: '/documents', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff'] }
+        path: '/documents', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'] }
     },
     {
-        path: '/overview/pr-request', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'] }
+        path: '/overview/pr-request', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'] }
     },
     {
-        path: '/marketing/pr-tasks', roles: ['BOE', 'C Level', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], delete: ['BOE', 'C Level'] }
+        path: '/marketing/pr-tasks', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], delete: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/admin-review', roles: ['BOE', 'C Level', 'Secretary', 'Administration', 'Staff', 'Business Partner'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Secretary', 'Staff'], approve: ['BOE', 'Administration'], delete: ['BOE', 'Administration'] }
+        path: '/admin-review', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff', 'Business Partner'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], approve: ['BOE', 'Manager', 'Administration'], delete: ['BOE', 'Manager', 'Administration'] }
     },
 ]
 
@@ -186,16 +198,16 @@ export function canPerformAction(user: CurrentUser | null, path: string, action:
     const allowedRoles = perm.actions[action]
     if (!allowedRoles) return false
 
-    // C Level can approve in their own department section or if page is in their department
-    if (action === 'approve' && user.role === 'C Level') {
+    // Manager/C Level can approve in their own department section or if page is in their department
+    if (action === 'approve' && (user.role === 'C Level' || user.role === 'Manager')) {
         let isDeptPage = isDepartmentPage(path, user.department)
         
-        // Special case: HR C-Level can approve on /admin-review
+        // Special case: HR managers can approve on /admin-review
         if (path.startsWith('/admin-review') && user.department === 'Human Resource') {
             isDeptPage = true
         }
         
-        return allowedRoles.includes('C Level') && isDeptPage
+        return allowedRoles.includes(user.role) && isDeptPage
     }
 
     // Special case for Administration "role"
@@ -268,7 +280,7 @@ export function isSecretary(user: CurrentUser | null): boolean {
  */
 export function getVisibleSections(user: CurrentUser | null): string[] {
     if (!user) return []
-    if (user.role === 'BOE' || user.department === 'Executive' || user.role === 'Secretary') {
+    if (user.role === 'BOE' || user.department === 'Executive' || user.role === 'Secretary' || user.role === 'Manager') {
         return ['Overview', 'Human Resources', 'Operating', 'Finance', 'Business', 'Marketing & Branding', 'Public Relation', 'Administrasi']
     }
 
@@ -287,7 +299,7 @@ export function getVisibleSections(user: CurrentUser | null): string[] {
     if (deptSection) {
         if (deptSection === 'Marketing') {
             const pos = user.position?.toLowerCase() || ''
-            const isManager = user.role === 'C Level' || user.role === 'Secretary' || user.role === 'BOE'
+            const isManager = user.role === 'C Level' || user.role === 'Manager' || user.role === 'Secretary' || user.role === 'BOE'
             
             if (isManager || pos.includes('marketing & brand')) {
                 sections.push('Marketing & Branding')
@@ -323,7 +335,7 @@ export function canManageModule(user: CurrentUser | null, moduleName: string): b
     if (!user) return false
     
     // Global managers can manage everything
-    if (user.role === 'BOE' || user.role === 'C Level' || user.role === 'Secretary') {
+    if (user.role === 'BOE' || user.role === 'C Level' || user.role === 'Manager' || user.role === 'Secretary') {
         return true
     }
 

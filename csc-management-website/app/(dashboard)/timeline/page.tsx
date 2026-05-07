@@ -99,21 +99,37 @@ export default function TimelinePage() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
-        const { creator, ...cleanForm } = form as any
-        const payload = {
-            ...cleanForm,
-            created_by: form.created_by || currentUser?.id || null,
-            start_time: form.is_full_day ? null : (form.start_time || null),
-            end_time: form.is_full_day ? null : (form.end_time || null),
-            event_date: form.event_date || new Date().toISOString().split('T')[0],
-            end_date: form.end_date || null,
-            is_full_day: form.is_full_day,
+        try {
+            const { creator, ...cleanForm } = form as any
+            const payload = {
+                ...cleanForm,
+                created_by: form.created_by || currentUser?.id || null,
+                start_time: form.is_full_day ? null : (form.start_time || null),
+                end_time: form.is_full_day ? null : (form.end_time || null),
+                event_date: form.event_date || new Date().toISOString().split('T')[0],
+                end_date: form.end_date || null,
+                is_full_day: form.is_full_day,
+            }
+            
+            let error;
+            if (editId) { 
+                const res = await supabase.from('timeline_entries').update(payload).eq('id', editId)
+                error = res.error
+            } else { 
+                const res = await supabase.from('timeline_entries').insert(payload)
+                error = res.error
+            }
+            
+            if (error) throw error
+            
+            setShowModal(false); setEditId(null)
+            setForm(emptyForm)
+            loadData()
+            alert(editId ? 'Entri berhasil diperbarui' : 'Entri berhasil ditambahkan')
+        } catch (err: any) {
+            console.error('Error saving timeline entry:', err)
+            alert('Gagal menyimpan entri: ' + (err.message || 'Terjadi kesalahan internal'))
         }
-        if (editId) { await supabase.from('timeline_entries').update(payload).eq('id', editId) }
-        else { await supabase.from('timeline_entries').insert(payload) }
-        setShowModal(false); setEditId(null)
-        setForm(emptyForm)
-        loadData()
     }
 
     async function handleCsvImport(rows: Record<string, string>[]) {
@@ -408,7 +424,7 @@ export default function TimelinePage() {
                                             {' · '}{selectedDateEvents.length} kegiatan
                                         </p>
                                     </div>
-                                    <button className="btn btn-ghost btn-sm close-panel" onClick={() => setSelectedDate(null)}><X size={16} /></button>
+                                    <button className="btn btn-ghost btn-sm close-panel" onClick={() => setSelectedDate(null)} style={{ color: 'white' }}><X size={16} /></button>
                                 </div>
                                 <div className="panel-body">
                                 {selectedDateEvents.length === 0 ? (

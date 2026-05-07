@@ -37,6 +37,7 @@ const CSV_COLUMNS = [
     { key: 'nim', label: 'NIM', required: true },
     { key: 'email', label: 'Email' },
     { key: 'phone', label: 'Telepon' },
+    { key: 'whatsapp', label: 'WhatsApp' },
     { key: 'department', label: 'Bidang' },
     { key: 'role', label: 'Role' },
     { key: 'position', label: 'Jabatan' },
@@ -50,6 +51,7 @@ const PDF_COLUMNS = [
     { header: 'Jabatan', key: 'position' },
     { header: 'Email', key: 'email' },
     { header: 'Telepon', key: 'phone' },
+    { header: 'WhatsApp', key: 'whatsapp' },
 ]
 
 export default function MembersPage() {
@@ -61,7 +63,7 @@ export default function MembersPage() {
     const [search, setSearch] = useState('')
     const [filterDept, setFilterDept] = useState('')
     const [filterRole, setFilterRole] = useState('')
-    const [form, setForm] = useState({ full_name: '', nim: '', email: '', phone: '', department: '', role: '', position: '' })
+    const [form, setForm] = useState({ full_name: '', nim: '', email: '', phone: '', whatsapp: '', department: '', role: '', position: '' })
     const [editId, setEditId] = useState<string | null>(null)
     const [deleteMember, setDeleteMember] = useState<{ id: string, full_name: string } | null>(null)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -86,7 +88,7 @@ export default function MembersPage() {
         if (editId) { await supabase.from('members').update(form).eq('id', editId) }
         else { await supabase.from('members').insert(form) }
         setShowModal(false); setEditId(null)
-        setForm({ full_name: '', nim: '', email: '', phone: '', department: '', role: '', position: '' })
+        setForm({ full_name: '', nim: '', email: '', phone: '', whatsapp: '', department: '', role: '', position: '' })
         loadData()
     }
 
@@ -120,6 +122,7 @@ export default function MembersPage() {
                 nim: row.nim || null,
                 email: row.email || null,
                 phone: row.phone || null,
+                whatsapp: row.whatsapp || row.phone || null,
                 department: row.department || null,
                 role: role,
                 position: row.position || null,
@@ -182,7 +185,7 @@ export default function MembersPage() {
                         {canCreate && (
                             <>
                                 <button className="btn btn-secondary btn-sm" onClick={() => setShowCsvImport(true)}><Upload size={14} /> Import CSV</button>
-                                <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ full_name: '', nim: '', email: '', phone: '', department: '', role: '', position: '' }); setShowModal(true) }}>
+                                <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ full_name: '', nim: '', email: '', phone: '', whatsapp: '', department: '', role: '', position: '' }); setShowModal(true) }}>
                                     <Plus size={16} /> Tambah Anggota
                                 </button>
                             </>)}
@@ -224,7 +227,7 @@ export default function MembersPage() {
                                                  <td data-label="Kontak" style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{m.phone || '-'}</td>
                                                  <td>
                                                      <div style={{ display: 'flex', gap: 4 }}>
-                                                         {canCreate && <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ full_name: m.full_name, nim: m.nim || '', email: m.email || '', phone: m.phone || '', department: m.department || '', role: m.role || '', position: m.position || '' }); setEditId(m.id); setShowModal(true) }}>Edit</button>}
+                                                         {canCreate && <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ full_name: m.full_name, nim: m.nim || '', email: m.email || '', phone: m.phone || '', whatsapp: m.whatsapp || '', department: m.department || '', role: m.role || '', position: m.position || '' }); setEditId(m.id); setShowModal(true) }}>Edit</button>}
                                                          {canResetPassword && <button className="btn btn-ghost btn-sm" style={{ color: '#6d28d9' }} onClick={() => handleResetPassword(m.id, m.full_name)} title="Reset password"><KeyRound size={13} /></button>}
                                                          {canDeleteMember && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(m)}>Hapus</button>}
                                                      </div>
@@ -257,8 +260,8 @@ export default function MembersPage() {
                                         <div className="form-group"><label className="form-label">Role *</label><select className="form-select" required value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option value="">Pilih Role</option>{ROLES.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                        <div className="form-group"><label className="form-label">Jabatan</label><input className="form-input" value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} placeholder="cth: Ketua, Wakil, Staf..." /></div>
                                         <div className="form-group"><label className="form-label">No. Telepon</label><input className="form-input" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">No. WhatsApp</label><input className="form-input" value={form.whatsapp} onChange={e => setForm({ ...form, whatsapp: e.target.value })} placeholder="628XXXXXXXXX" /></div>
                                     </div>
                                 </div>
                                 <div className="modal-footer">

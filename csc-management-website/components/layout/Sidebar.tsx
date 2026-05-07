@@ -50,6 +50,9 @@ const navSections = [
         title: 'Operating',
         items: [
             { label: 'Program Kerja', href: '/operating/programs', icon: FolderKanban },
+            { label: 'Penjadwalan Broadcast', href: '/operating/broadcasts', icon: Megaphone },
+            { label: 'Editorial Plan', href: '/operating/editorial', icon: PenTool },
+            { label: 'Direktori CP', href: '/operating/directory', icon: MessageCircle },
             { label: 'Order Monitoring', href: '/operating/orders', icon: ClipboardList, badgeKey: 'orders' },
             { label: 'KPI Program', href: '/operating/kpi', icon: BarChart3 },
             { label: 'Evaluasi', href: '/operating/evaluations', icon: ClipboardCheck },
