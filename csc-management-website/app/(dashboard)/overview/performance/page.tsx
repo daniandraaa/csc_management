@@ -1,12 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Trophy, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { Trophy, ChevronLeft, ChevronRight, Search, Calculator } from 'lucide-react'
 
 const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4']
+const MONTHS = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+]
 const CURRENT_YEAR = new Date().getFullYear()
-const CURRENT_QUARTER = `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`
+const CURRENT_MONTH_IDX = new Date().getMonth()
+const CURRENT_QUARTER = `Q${Math.ceil((CURRENT_MONTH_IDX + 1) / 3)}`
+const CURRENT_MONTH = MONTHS[CURRENT_MONTH_IDX]
 
 function getYears() {
     const years = []
@@ -18,7 +24,9 @@ export default function OverviewPerformancePage() {
     const [rankings, setRankings] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
+    const [viewType, setViewType] = useState<'quarter' | 'month'>('month')
     const [selectedQuarter, setSelectedQuarter] = useState(CURRENT_QUARTER)
+    const [selectedMonth, setSelectedMonth] = useState(CURRENT_MONTH)
     const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR)
 
     useEffect(() => { loadData() }, [])
@@ -46,48 +54,120 @@ export default function OverviewPerformancePage() {
         return '#fee2e2'
     }
 
-    function navigateQuarter(dir: 'prev' | 'next') {
-        const qi = QUARTERS.indexOf(selectedQuarter)
-        if (dir === 'next') {
-            if (qi === 3) { setSelectedQuarter('Q1'); setSelectedYear(y => y + 1) }
-            else setSelectedQuarter(QUARTERS[qi + 1])
+    function navigatePeriod(dir: 'prev' | 'next') {
+        if (viewType === 'quarter') {
+            const qi = QUARTERS.indexOf(selectedQuarter)
+            if (dir === 'next') {
+                if (qi === 3) { setSelectedQuarter('Q1'); setSelectedYear(y => y + 1) }
+                else setSelectedQuarter(QUARTERS[qi + 1])
+            } else {
+                if (qi === 0) { setSelectedQuarter('Q4'); setSelectedYear(y => y - 1) }
+                else setSelectedQuarter(QUARTERS[qi - 1])
+            }
         } else {
-            if (qi === 0) { setSelectedQuarter('Q4'); setSelectedYear(y => y - 1) }
-            else setSelectedQuarter(QUARTERS[qi - 1])
+            const mi = MONTHS.indexOf(selectedMonth)
+            if (dir === 'next') {
+                if (mi === 11) { setSelectedMonth(MONTHS[0]); setSelectedYear(y => y + 1) }
+                else setSelectedMonth(MONTHS[mi + 1])
+            } else {
+                if (mi === 0) { setSelectedMonth(MONTHS[11]); setSelectedYear(y => y - 1) }
+                else setSelectedMonth(MONTHS[mi - 1])
+            }
         }
     }
 
-    const currentPeriod = `${selectedQuarter} ${selectedYear}`
-    const filteredByPeriod = rankings.filter((r: any) => r.period === currentPeriod)
+    // Integrated Logic: Quarterly is an aggregation of Monthly data
+    const filteredByPeriod = useMemo(() => {
+        if (viewType === 'month') {
+            const periodStr = `${selectedMonth} ${selectedYear}`
+            return rankings.filter((r: any) => r.period === periodStr)
+        } else {
+            const qMonths = {
+                'Q1': ['Januari', 'Februari', 'Maret'],
+                'Q2': ['April', 'Mei', 'Juni'],
+                'Q3': ['Juli', 'Agustus', 'September'],
+                'Q4': ['Oktober', 'November', 'Desember']
+            }[selectedQuarter] || []
+            
+            const monthPeriods = qMonths.map(m => `${m} ${selectedYear}`)
+            const relevantRankings = rankings.filter((r: any) => monthPeriods.includes(r.period))
+            
+            const grouped = new Map<string, any>()
+            relevantRankings.forEach(r => {
+                const mid = r.member_id
+                if (!grouped.has(mid)) {
+                    grouped.set(mid, { ...r, scoreSum: 0, count: 0, notesList: [] })
+                }
+                const g = grouped.get(mid)
+                g.scoreSum += r.score
+                g.count += 1
+                if (r.notes) g.notesList.push(`${r.period.split(' ')[0]}: ${r.notes}`)
+            })
+            
+            return Array.from(grouped.values()).map(g => ({
+                ...g,
+                score: parseFloat((g.scoreSum / g.count).toFixed(1)),
+                notes: g.notesList.join(' | '),
+                isAggregate: true,
+                count: g.count
+            })).sort((a, b) => b.score - a.score)
+        }
+    }, [viewType, selectedMonth, selectedQuarter, selectedYear, rankings])
+
     const filtered = filteredByPeriod.filter((r: any) =>
         r.member?.full_name?.toLowerCase().includes(search.toLowerCase())
     )
 
+    const currentPeriod = viewType === 'quarter' ? `${selectedQuarter} ${selectedYear}` : `${selectedMonth} ${selectedYear}`
+
     const allPeriods = Array.from(new Set(rankings.map((r: any) => r.period))).sort((a, b) => {
-        const [qa, ya] = (a as string).split(' ')
-        const [qb, yb] = (b as string).split(' ')
-        return Number(yb) - Number(ya) || QUARTERS.indexOf(qb) - QUARTERS.indexOf(qa)
+        const partsA = (a as string).split(' ')
+        const partsB = (b as string).split(' ')
+        if (partsA[1] !== partsB[1]) return Number(partsB[1]) - Number(partsA[1])
+        const isQA = partsA[0].startsWith('Q')
+        const isQB = partsB[0].startsWith('Q')
+        if (isQA && isQB) return QUARTERS.indexOf(partsB[0]) - QUARTERS.indexOf(partsA[0])
+        if (!isQA && !isQB) return MONTHS.indexOf(partsB[0]) - MONTHS.indexOf(partsA[0])
+        return isQA ? -1 : 1
     })
 
     return (
         <div>
             <div className="page-container">
                 <h1 className="page-title">Ranking Performansi</h1>
-                <p className="page-subtitle">Lihat ranking performa anggota CSC per kuartal</p>
+                <p className="page-subtitle">Lihat ranking performa anggota CSC per periode</p>
+
+                {/* Period Type Toggle */}
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+                    <button 
+                        onClick={() => setViewType('quarter')}
+                        style={{ padding: '0.375rem 1rem', borderRadius: 99, border: '1px solid #e2e8f0', background: viewType === 'quarter' ? '#9A3412' : 'white', color: viewType === 'quarter' ? 'white' : '#57534e', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}
+                    >Kuartal</button>
+                    <button 
+                        onClick={() => setViewType('month')}
+                        style={{ padding: '0.375rem 1rem', borderRadius: 99, border: '1px solid #e2e8f0', background: viewType === 'month' ? '#9A3412' : 'white', color: viewType === 'month' ? 'white' : '#57534e', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}
+                    >Bulanan</button>
+                </div>
 
                 {/* Toolbar */}
                 <div className="performance-toolbar">
                     <div className="period-nav">
-                        <button className="nav-btn" onClick={() => navigateQuarter('prev')}><ChevronLeft size={16} /></button>
-                        <div className="period-pills">
-                            {QUARTERS.map(q => (
-                                <button key={q} onClick={() => setSelectedQuarter(q)} className={`pill ${selectedQuarter === q ? 'active' : ''}`}>{q}</button>
-                            ))}
-                        </div>
+                        <button className="nav-btn" onClick={() => navigatePeriod('prev')}><ChevronLeft size={16} /></button>
+                        {viewType === 'quarter' ? (
+                            <div className="period-pills">
+                                {QUARTERS.map(q => (
+                                    <button key={q} onClick={() => setSelectedQuarter(q)} className={`pill ${selectedQuarter === q ? 'active' : ''}`}>{q}</button>
+                                ))}
+                            </div>
+                        ) : (
+                            <select className="year-select" style={{ borderRight: '1px solid #e2e8f0', paddingRight: '0.5rem' }} value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
+                                {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                        )}
                         <select className="year-select" value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}>
                             {getYears().map(y => <option key={y} value={y}>{y}</option>)}
                         </select>
-                        <button className="nav-btn" onClick={() => navigateQuarter('next')}><ChevronRight size={16} /></button>
+                        <button className="nav-btn" onClick={() => navigatePeriod('next')}><ChevronRight size={16} /></button>
                     </div>
 
                     <div className="search-wrapper">
@@ -123,7 +203,10 @@ export default function OverviewPerformancePage() {
                                     <div className="podium-dept">{r.member?.department}</div>
                                 </div>
                                 <div className="podium-score-wrapper" style={{ background: getScoreBg(r.score) }}>
-                                    <span className="podium-score" style={{ color: getScoreColor(r.score) }}>{r.score}</span>
+                                    <span className="podium-score" style={{ color: getScoreColor(r.score), display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                        {r.score}
+                                        {r.isAggregate && <Calculator size={14} title={`Rata-rata dari ${r.count} bulan`} />}
+                                    </span>
                                 </div>
                                 <div className="podium-unit">poin</div>
                             </div>
@@ -151,8 +234,8 @@ export default function OverviewPerformancePage() {
                                 <tr><td colSpan={5}>
                                     <div className="empty-state">
                                         <Trophy size={48} />
-                                        <h3>Belum ada data untuk {currentPeriod}</h3>
-                                        <p>Data ranking performansi belum tersedia untuk kuartal ini.</p>
+                                        <h3>Belum ada data untuk {viewType === 'month' ? `${selectedMonth} ${selectedYear}` : `${selectedQuarter} ${selectedYear}`}</h3>
+                                        <p>Data ranking performansi belum tersedia untuk periode ini.</p>
                                     </div>
                                 </td></tr>
                             ) : filtered.map((r: any, i: number) => (
@@ -165,11 +248,14 @@ export default function OverviewPerformancePage() {
                                     <td data-label="Bidang" style={{ fontSize: '0.8125rem', color: '#57534e' }}>{r.member?.department || '-'}</td>
                                     <td data-label="Score">
                                         <span style={{
-                                            display: 'inline-flex', alignItems: 'center',
+                                            display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
                                             padding: '0.2rem 0.625rem', borderRadius: 99,
                                             fontWeight: 700, fontSize: '0.875rem',
                                             background: getScoreBg(r.score), color: getScoreColor(r.score),
-                                        }}>{r.score}</span>
+                                        }}>
+                                            {r.score}
+                                            {r.isAggregate && <Calculator size={12} title={`Rata-rata dari ${r.count} bulan`} />}
+                                        </span>
                                     </td>
                                     <td data-label="Progress" style={{ width: 160 }}>
                                         <div className="progress-bar">
@@ -187,11 +273,17 @@ export default function OverviewPerformancePage() {
                     <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.75rem', color: '#a8a29e', fontWeight: 600 }}>Periode lain:</span>
                         {allPeriods.filter(p => p !== currentPeriod).slice(0, 6).map((p: any) => {
-                            const [q, y] = p.split(' ')
+                            const parts = p.split(' ')
+                            const isQ = parts[0].startsWith('Q')
                             const count = rankings.filter((r: any) => r.period === p).length
                             return (
                                 <button key={p}
-                                    onClick={() => { setSelectedQuarter(q); setSelectedYear(Number(y)) }}
+                                    onClick={() => { 
+                                        setViewType(isQ ? 'quarter' : 'month')
+                                        if (isQ) setSelectedQuarter(parts[0])
+                                        else setSelectedMonth(parts[0])
+                                        setSelectedYear(Number(parts[1])) 
+                                    }}
                                     style={{
                                         padding: '0.2rem 0.625rem', borderRadius: 99,
                                         border: '1px solid #e2e8f0', background: 'white',

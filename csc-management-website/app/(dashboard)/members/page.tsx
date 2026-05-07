@@ -8,16 +8,19 @@ import { getInitials } from '@/lib/utils'
 import { hashPassword } from '@/lib/password'
 import { Users, Plus, X, Search, Upload, Download, FileText, KeyRound } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
+import DeleteMemberModal from '@/components/DeleteMemberModal'
 import { exportToPdf, exportToCsv } from '@/lib/export'
 
 const DEPARTMENTS = ['Executive', 'Marketing', 'Business', 'Operating', 'Human Resource', 'Financial']
-const ROLES = ['BOE', 'C Level', 'Secretary', 'Staff', 'Administration', 'Business Partner']
+const ROLES = ['BOE', 'C Level', 'Secretary', 'Staff', 'Administration', 'Business Partner', 'Manager']
 
 const roleColors: Record<string, { bg: string; text: string }> = {
     'BOE': { bg: '#fef2f2', text: '#991b1b' },
     'C Level': { bg: '#fff7ed', text: '#9a3412' },
     'Secretary': { bg: '#eff6ff', text: '#1d4ed8' },
     'Staff': { bg: '#f0fdf4', text: '#15803d' },
+    'Manager': { bg: '#faf5ff', text: '#7e22ce' },
+    'Administration': { bg: '#f1f5f9', text: '#475569' },
 }
 
 const deptColors: Record<string, string> = {
@@ -60,6 +63,8 @@ export default function MembersPage() {
     const [filterRole, setFilterRole] = useState('')
     const [form, setForm] = useState({ full_name: '', nim: '', email: '', phone: '', department: '', role: '', position: '' })
     const [editId, setEditId] = useState<string | null>(null)
+    const [deleteMember, setDeleteMember] = useState<{ id: string, full_name: string } | null>(null)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
 
     const canCreate = canPerformAction(currentUser, '/members', 'create')
     const canDeleteMember = canPerformAction(currentUser, '/members', 'delete')
@@ -71,7 +76,7 @@ export default function MembersPage() {
 
     async function loadData() {
         setLoading(true)
-        const { data } = await supabase.from('members').select('*').order('full_name')
+        const { data } = await supabase.from('members').select('*').order('full_name').limit(5000)
         setMembers(data || [])
         setLoading(false)
     }
@@ -85,15 +90,9 @@ export default function MembersPage() {
         loadData()
     }
 
-    async function handleDelete(id: string) {
-        if (confirm('Hapus anggota?')) {
-            const { error } = await supabase.from('members').delete().eq('id', id)
-            if (error) {
-                alert("Gagal menghapus anggota: " + error.message + "\n\nKemungkinan masih ada data lain yang terikat dengan anggota ini (sebagai PIC Proker, Pengelola Surat, dll).")
-            } else {
-                loadData()
-            }
-        }
+    async function handleDelete(m: any) {
+        setDeleteMember({ id: m.id, full_name: m.full_name })
+        setShowDeleteModal(true)
     }
 
     async function handleResetPassword(id: string, name: string) {
@@ -108,18 +107,34 @@ export default function MembersPage() {
     }
 
     async function handleCsvImport(rows: Record<string, string>[]) {
-        for (const row of rows) {
-            await supabase.from('members').insert({
+        if (rows.length === 0) return
+        
+        const toInsert = rows.map(row => {
+            // Normalize Role (e.g. C-Level -> C Level)
+            let role = row.role || 'Staff'
+            if (role.toLowerCase() === 'c-level') role = 'C Level'
+            if (role.toLowerCase() === 'c level') role = 'C Level'
+            
+            return {
                 full_name: row.full_name,
                 nim: row.nim || null,
                 email: row.email || null,
                 phone: row.phone || null,
                 department: row.department || null,
-                role: row.role || 'Staff',
+                role: role,
                 position: row.position || null,
-            })
+            }
+        }).filter(r => r.full_name) // Ensure full_name is present
+
+        const { error } = await supabase.from('members').insert(toInsert)
+        
+        if (error) {
+            console.error('Import error:', error)
+            alert(`Gagal mengimpor data: ${error.message}\n\nPastikan format data benar (misal: role harus sesuai)`)
+        } else {
+            alert(`${toInsert.length} anggota berhasil diimpor!`)
+            loadData()
         }
-        loadData()
     }
 
     const filtered = members.filter(m => {
@@ -133,7 +148,7 @@ export default function MembersPage() {
         <div>
             <div className="topbar"><div className="topbar-title">Direktori Anggota</div></div>
             <div className="page-container">
-                <h1 className="page-title">Anggota CSC</h1>
+                <h1 className="page-title">Anggota CSC ({members.length})</h1>
                 <p className="page-subtitle">Direktori anggota Community Support Center Telkom University</p>
 
                 <div className="stats-grid">
@@ -211,7 +226,7 @@ export default function MembersPage() {
                                                      <div style={{ display: 'flex', gap: 4 }}>
                                                          {canCreate && <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ full_name: m.full_name, nim: m.nim || '', email: m.email || '', phone: m.phone || '', department: m.department || '', role: m.role || '', position: m.position || '' }); setEditId(m.id); setShowModal(true) }}>Edit</button>}
                                                          {canResetPassword && <button className="btn btn-ghost btn-sm" style={{ color: '#6d28d9' }} onClick={() => handleResetPassword(m.id, m.full_name)} title="Reset password"><KeyRound size={13} /></button>}
-                                                         {canDeleteMember && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(m.id)}>Hapus</button>}
+                                                         {canDeleteMember && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(m)}>Hapus</button>}
                                                      </div>
                                                  </td>
                                              </tr>
@@ -264,6 +279,14 @@ export default function MembersPage() {
                     existingData={members}
                     matchFields={['nim', 'full_name', 'email']}
                     title="Import Data Anggota"
+                />
+
+                {/* Delete Confirmation Modal with Dependency Check */}
+                <DeleteMemberModal
+                    isOpen={showDeleteModal}
+                    onClose={() => { setShowDeleteModal(false); setDeleteMember(null) }}
+                    member={deleteMember}
+                    onSuccess={() => { loadData() }}
                 />
             </div>
         </div>

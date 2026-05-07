@@ -161,9 +161,15 @@ export default function LoginPage() {
             return
         }
 
-        const valid = await verifyPassword(password, member.password_hash)
-        if (!valid) {
-            setError('Password salah. Coba lagi.')
+        try {
+            const valid = await verifyPassword(password, member.password_hash)
+            if (!valid) {
+                setError('Password salah. Coba lagi.')
+                setLoggingIn(false)
+                return
+            }
+        } catch (err: any) {
+            setError(err.message || 'Gagal memverifikasi password.')
             setLoggingIn(false)
             return
         }
@@ -188,18 +194,27 @@ export default function LoginPage() {
         setLoggingIn(true)
         setError('')
 
-        const hashed = await hashPassword(newPassword)
-        // Save password to Supabase
+        let hashed = ''
+        try {
+            hashed = await hashPassword(newPassword)
+        } catch (err: any) {
+            setError(err.message || 'Gagal memproses password.')
+            setLoggingIn(false)
+            return
+        }
+
         const { error: updateError } = await supabase
             .from('members')
-            .update({ password_hash: hashed, has_set_password: true })
+            .update({ 
+                password_hash: hashed,
+                has_set_password: true 
+            })
             .eq('id', selectedId)
 
         if (updateError) {
-            console.warn('Failed to save password:', updateError.message)
             // Still allow login even if save failed (columns may not exist)
         } else {
-            // Update local state so the member shows as having set password
+            // Update local state
             setMembers(prev => prev.map(m =>
                 m.id === selectedId
                     ? { ...m, password_hash: hashed, has_set_password: true }

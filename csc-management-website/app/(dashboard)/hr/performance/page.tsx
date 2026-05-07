@@ -1,16 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/lib/auth'
 import { canPerformAction } from '@/lib/rbac'
-import { Trophy, Plus, Search, X, Upload, Download, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Trophy, Plus, Search, X, Upload, Download, FileText, ChevronLeft, ChevronRight, Calculator } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
 import { exportToPdf, exportToCsv } from '@/lib/export'
 
 const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4']
+const MONTHS = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+]
 const CURRENT_YEAR = new Date().getFullYear()
-const CURRENT_QUARTER = `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`
+const CURRENT_MONTH_IDX = new Date().getMonth()
+const CURRENT_QUARTER = `Q${Math.ceil((CURRENT_MONTH_IDX + 1) / 3)}`
+const CURRENT_MONTH = MONTHS[CURRENT_MONTH_IDX]
 
 function getYears() {
     const years = []
@@ -29,12 +35,21 @@ export default function PerformancePage() {
     const [showCsvImport, setShowCsvImport] = useState(false)
     const [search, setSearch] = useState('')
 
-    // Quarter/Year filter
+    // Period filter
+    const [viewType, setViewType] = useState<'quarter' | 'month'>('month')
     const [selectedQuarter, setSelectedQuarter] = useState(CURRENT_QUARTER)
+    const [selectedMonth, setSelectedMonth] = useState(CURRENT_MONTH)
     const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR)
 
-    // Form state - structured quarter picker
-    const [form, setForm] = useState({ member_id: '', quarter: CURRENT_QUARTER, year: String(CURRENT_YEAR), score: '', notes: '' })
+    // Form state - restricted to month only as per new integrated logic
+    const [form, setForm] = useState({ 
+        member_id: '', 
+        type: 'month' as 'month',
+        month: CURRENT_MONTH,
+        year: String(selectedYear || CURRENT_YEAR), 
+        score: '', 
+        notes: '' 
+    })
     const [editId, setEditId] = useState<string | null>(null)
 
     useEffect(() => { loadData() }, [])
@@ -57,7 +72,7 @@ export default function PerformancePage() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
-        const period = `${form.quarter} ${form.year}`
+        const period = `${form.month} ${form.year}`
         const payload = { member_id: form.member_id, period, score: parseFloat(form.score), notes: form.notes || null }
         console.log('Submitting payload:', payload)
         let error
@@ -75,7 +90,14 @@ export default function PerformancePage() {
         }
         setShowModal(false)
         setEditId(null)
-        setForm({ member_id: '', quarter: selectedQuarter, year: String(selectedYear), score: '', notes: '' })
+        setForm({ 
+            member_id: '', 
+            type: 'month',
+            month: selectedMonth,
+            year: String(selectedYear), 
+            score: '', 
+            notes: '' 
+        })
         loadData()
     }
 
@@ -101,18 +123,62 @@ export default function PerformancePage() {
         loadData()
     }
 
-    // Filter by selected quarter + year
-    const currentPeriod = `${selectedQuarter} ${selectedYear}`
-    const filteredByPeriod = rankings.filter((r: any) => r.period === currentPeriod)
+    // Integrated Logic: Quarterly is an aggregation of Monthly data
+    const filteredByPeriod = useMemo(() => {
+        if (viewType === 'month') {
+            const periodStr = `${selectedMonth} ${selectedYear}`
+            return rankings.filter((r: any) => r.period === periodStr)
+        } else {
+            const qMonths = {
+                'Q1': ['Januari', 'Februari', 'Maret'],
+                'Q2': ['April', 'Mei', 'Juni'],
+                'Q3': ['Juli', 'Agustus', 'September'],
+                'Q4': ['Oktober', 'November', 'Desember']
+            }[selectedQuarter] || []
+            
+            const monthPeriods = qMonths.map(m => `${m} ${selectedYear}`)
+            const relevantRankings = rankings.filter((r: any) => monthPeriods.includes(r.period))
+            
+            const grouped = new Map<string, any>()
+            relevantRankings.forEach(r => {
+                const mid = r.member_id
+                if (!grouped.has(mid)) {
+                    grouped.set(mid, { ...r, scoreSum: 0, count: 0, notesList: [] })
+                }
+                const g = grouped.get(mid)
+                g.scoreSum += r.score
+                g.count += 1
+                if (r.notes) g.notesList.push(`${r.period.split(' ')[0]}: ${r.notes}`)
+            })
+            
+            return Array.from(grouped.values()).map(g => ({
+                ...g,
+                score: parseFloat((g.scoreSum / g.count).toFixed(1)),
+                notes: g.notesList.join(' | '),
+                isAggregate: true,
+                count: g.count
+            })).sort((a, b) => b.score - a.score)
+        }
+    }, [viewType, selectedMonth, selectedQuarter, selectedYear, rankings])
+
     const filtered = filteredByPeriod.filter((r: any) =>
         r.member?.full_name?.toLowerCase().includes(search.toLowerCase())
     )
 
+    const currentPeriod = viewType === 'quarter' ? `${selectedQuarter} ${selectedYear}` : `${selectedMonth} ${selectedYear}`
+
     // All unique periods for nav
     const allPeriods = Array.from(new Set(rankings.map((r: any) => r.period))).sort((a, b) => {
-        const [qa, ya] = (a as string).split(' ')
-        const [qb, yb] = (b as string).split(' ')
-        return Number(yb) - Number(ya) || QUARTERS.indexOf(qb) - QUARTERS.indexOf(qa)
+        const partsA = (a as string).split(' ')
+        const partsB = (b as string).split(' ')
+        if (partsA[1] !== partsB[1]) return Number(partsB[1]) - Number(partsA[1])
+        
+        // Same year, check if quarter or month
+        const isQA = partsA[0].startsWith('Q')
+        const isQB = partsB[0].startsWith('Q')
+        if (isQA && isQB) return QUARTERS.indexOf(partsB[0]) - QUARTERS.indexOf(partsA[0])
+        if (!isQA && !isQB) return MONTHS.indexOf(partsB[0]) - MONTHS.indexOf(partsA[0])
+        return isQA ? -1 : 1 // Quarters after months or vice versa
     })
 
     const perfPdfCols = [
@@ -144,14 +210,25 @@ export default function PerformancePage() {
         return '#fee2e2'
     }
 
-    function navigateQuarter(dir: 'prev' | 'next') {
-        const qi = QUARTERS.indexOf(selectedQuarter)
-        if (dir === 'next') {
-            if (qi === 3) { setSelectedQuarter('Q1'); setSelectedYear(y => y + 1) }
-            else setSelectedQuarter(QUARTERS[qi + 1])
+    function navigatePeriod(dir: 'prev' | 'next') {
+        if (viewType === 'quarter') {
+            const qi = QUARTERS.indexOf(selectedQuarter)
+            if (dir === 'next') {
+                if (qi === 3) { setSelectedQuarter('Q1'); setSelectedYear(y => y + 1) }
+                else setSelectedQuarter(QUARTERS[qi + 1])
+            } else {
+                if (qi === 0) { setSelectedQuarter('Q4'); setSelectedYear(y => y - 1) }
+                else setSelectedQuarter(QUARTERS[qi - 1])
+            }
         } else {
-            if (qi === 0) { setSelectedQuarter('Q4'); setSelectedYear(y => y - 1) }
-            else setSelectedQuarter(QUARTERS[qi - 1])
+            const mi = MONTHS.indexOf(selectedMonth)
+            if (dir === 'next') {
+                if (mi === 11) { setSelectedMonth(MONTHS[0]); setSelectedYear(y => y + 1) }
+                else setSelectedMonth(MONTHS[mi + 1])
+            } else {
+                if (mi === 0) { setSelectedMonth(MONTHS[11]); setSelectedYear(y => y - 1) }
+                else setSelectedMonth(MONTHS[mi - 1])
+            }
         }
     }
 
@@ -161,7 +238,21 @@ export default function PerformancePage() {
                 <h1 className="page-title">Ranking Performansi</h1>
                 <p className="page-subtitle">Evaluasi dan ranking performa setiap anggota CSC per kuartal</p>
 
-                {/* Quarter Navigation */}
+                {/* Period Type Toggle */}
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <button 
+                        onClick={() => setViewType('quarter')}
+                        className={`btn btn-sm ${viewType === 'quarter' ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ borderRadius: 99 }}
+                    >Kuartal</button>
+                    <button 
+                        onClick={() => setViewType('month')}
+                        className={`btn btn-sm ${viewType === 'month' ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ borderRadius: 99 }}
+                    >Bulanan</button>
+                </div>
+
+                {/* Period Navigation */}
                 <div style={{
                     display: 'flex', alignItems: 'center', gap: '1rem',
                     marginBottom: '1.5rem', flexWrap: 'wrap',
@@ -173,24 +264,40 @@ export default function PerformancePage() {
                         boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
                     }}>
                         <button
-                            onClick={() => navigateQuarter('prev')}
+                            onClick={() => navigatePeriod('prev')}
                             style={{ padding: '0.25rem', borderRadius: 6, border: 'none', background: '#f1f5f9', cursor: 'pointer', display: 'flex' }}
                         ><ChevronLeft size={16} /></button>
-                        <div style={{ display: 'flex', gap: '0.25rem' }}>
-                            {QUARTERS.map(q => (
-                                <button key={q}
-                                    onClick={() => setSelectedQuarter(q)}
-                                    style={{
-                                        padding: '0.375rem 0.75rem', borderRadius: 8, border: 'none',
-                                        background: selectedQuarter === q ? 'linear-gradient(135deg, #9A3412, #7C2D12)' : 'transparent',
-                                        color: selectedQuarter === q ? 'white' : '#57534e',
-                                        fontWeight: selectedQuarter === q ? 700 : 500,
-                                        fontSize: '0.8125rem', cursor: 'pointer',
-                                        transition: 'all 0.15s',
-                                    }}
-                                >{q}</button>
-                            ))}
-                        </div>
+                        
+                        {viewType === 'quarter' ? (
+                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                {QUARTERS.map(q => (
+                                    <button key={q}
+                                        onClick={() => setSelectedQuarter(q)}
+                                        style={{
+                                            padding: '0.375rem 0.75rem', borderRadius: 8, border: 'none',
+                                            background: selectedQuarter === q ? 'linear-gradient(135deg, #9A3412, #7C2D12)' : 'transparent',
+                                            color: selectedQuarter === q ? 'white' : '#57534e',
+                                            fontWeight: selectedQuarter === q ? 700 : 500,
+                                            fontSize: '0.8125rem', cursor: 'pointer',
+                                            transition: 'all 0.15s',
+                                        }}
+                                    >{q}</button>
+                                ))}
+                            </div>
+                        ) : (
+                            <select 
+                                value={selectedMonth}
+                                onChange={e => setSelectedMonth(e.target.value)}
+                                style={{
+                                    border: 'none', background: 'transparent', fontWeight: 600,
+                                    fontSize: '0.875rem', cursor: 'pointer', outline: 'none',
+                                    color: '#292524', padding: '0 0.5rem'
+                                }}
+                            >
+                                {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                        )}
+
                         <select
                             value={selectedYear || ''}
                             onChange={e => setSelectedYear(Number(e.target.value))}
@@ -198,12 +305,14 @@ export default function PerformancePage() {
                                 border: 'none', background: 'transparent', fontWeight: 600,
                                 fontSize: '0.875rem', cursor: 'pointer', outline: 'none',
                                 color: '#292524', paddingRight: '0.25rem',
+                                borderLeft: '1px solid #e2e8f0',
+                                paddingLeft: '0.5rem'
                             }}
                         >
                             {getYears().map(y => <option key={y} value={y}>{y}</option>)}
                         </select>
                         <button
-                            onClick={() => navigateQuarter('next')}
+                            onClick={() => navigatePeriod('next')}
                             style={{ padding: '0.25rem', borderRadius: 6, border: 'none', background: '#f1f5f9', cursor: 'pointer', display: 'flex' }}
                         ><ChevronRight size={16} /></button>
                     </div>
@@ -211,8 +320,8 @@ export default function PerformancePage() {
                     {/* Period exists indicator */}
                     <div style={{ fontSize: '0.8125rem', color: '#78716c' }}>
                         {filteredByPeriod.length > 0
-                            ? <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {filteredByPeriod.length} anggota dinilai</span>
-                            : <span style={{ color: '#94a3b8' }}>Belum ada data untuk {currentPeriod}</span>
+                            ? <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {viewType === 'month' ? `${filteredByPeriod.length} anggota dinilai` : `Data agregat dari ${filteredByPeriod.length} anggota`}</span>
+                            : <span style={{ color: '#94a3b8' }}>Belum ada data untuk {viewType === 'month' ? `${selectedMonth} ${selectedYear}` : `${selectedQuarter} ${selectedYear}`}</span>
                         }
                     </div>
 
@@ -234,10 +343,10 @@ export default function PerformancePage() {
                                 <button className="btn btn-secondary btn-sm" onClick={() => exportToPdf({ title: `Ranking Performansi ${currentPeriod}`, subtitle: `CSC Management`, columns: perfPdfCols, data: perfData })}><FileText size={14} /> PDF</button>
                                 <button className="btn btn-primary" onClick={() => {
                                     setEditId(null)
-                                    setForm({ member_id: '', quarter: selectedQuarter, year: String(selectedYear), score: '', notes: '' })
+                                    setForm({ member_id: '', type: 'month', month: selectedMonth, year: String(selectedYear), score: '', notes: '' })
                                     setShowModal(true)
                                 }}>
-                                    <Plus size={16} /> Tambah
+                                    <Plus size={16} /> Tambah Nilai
                                 </button>
                             </>
                         )}
@@ -296,8 +405,8 @@ export default function PerformancePage() {
                                 <tr><td colSpan={canCreate ? 7 : 6}>
                                     <div className="empty-state">
                                         <Trophy size={48} />
-                                        <h3>Belum ada data untuk {currentPeriod}</h3>
-                                        <p>{canCreate ? 'Klik "+ Tambah" untuk menambahkan ranking kuartal ini.' : 'Data ranking performansi belum tersedia.'}</p>
+                                        <h3>Belum ada data untuk {viewType === 'month' ? `${selectedMonth} ${selectedYear}` : `${selectedQuarter} ${selectedYear}`}</h3>
+                                        <p>{canCreate ? 'Klik "+ Tambah Nilai" untuk memasukkan penilaian bulan ini.' : 'Data ranking belum tersedia.'}</p>
                                     </div>
                                 </td></tr>
                             ) : filtered.map((r: any, i: number) => (
@@ -310,12 +419,15 @@ export default function PerformancePage() {
                                     <td style={{ fontSize: '0.8125rem', color: '#57534e' }}>{r.member?.department || '-'}</td>
                                     <td>
                                         <span style={{
-                                            display: 'inline-flex', alignItems: 'center',
+                                            display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
                                             padding: '0.2rem 0.625rem', borderRadius: 99,
                                             fontWeight: 700, fontSize: '0.875rem',
                                             background: getScoreBg(r.score),
                                             color: getScoreColor(r.score),
-                                        }}>{r.score}</span>
+                                        }}>
+                                            {r.score}
+                                            {r.isAggregate && <Calculator size={12} title={`Rata-rata dari ${r.count} bulan`} />}
+                                        </span>
                                     </td>
                                     <td style={{ width: 160 }}>
                                         <div className="progress-bar">
@@ -325,15 +437,26 @@ export default function PerformancePage() {
                                     <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8125rem', color: '#78716c' }}>{r.notes || '-'}</td>
                                     {canCreate && (
                                         <td>
-                                            <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                                <button className="btn btn-ghost btn-sm" onClick={() => {
-                                                    const [q, y] = r.period.split(' ')
-                                                    setForm({ member_id: r.member_id, quarter: q, year: y, score: r.score.toString(), notes: r.notes || '' })
-                                                    setEditId(r.id)
-                                                    setShowModal(true)
-                                                }}>Edit</button>
-                                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(r.id)}>Hapus</button>
-                                            </div>
+                                            {!r.isAggregate ? (
+                                                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => {
+                                                        const parts = r.period.split(' ')
+                                                        setForm({ 
+                                                            member_id: r.member_id, 
+                                                            type: 'month',
+                                                            month: parts[0],
+                                                            year: parts[1], 
+                                                            score: r.score.toString(), 
+                                                            notes: r.notes || '' 
+                                                        })
+                                                        setEditId(r.id)
+                                                        setShowModal(true)
+                                                    }}>Edit</button>
+                                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(r.id)}>Hapus</button>
+                                                </div>
+                                            ) : (
+                                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Ganti ke mode Bulanan untuk edit</span>
+                                            )}
                                         </td>
                                     )}
                                 </tr>
@@ -347,11 +470,17 @@ export default function PerformancePage() {
                     <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.75rem', color: '#a8a29e', fontWeight: 600 }}>Periode lain:</span>
                         {allPeriods.filter(p => p !== currentPeriod).slice(0, 6).map((p: any) => {
-                            const [q, y] = p.split(' ')
+                            const parts = p.split(' ')
+                            const isQ = parts[0].startsWith('Q')
                             const count = rankings.filter((r: any) => r.period === p).length
                             return (
                                 <button key={p}
-                                    onClick={() => { setSelectedQuarter(q); setSelectedYear(Number(y)) }}
+                                    onClick={() => { 
+                                        setViewType(isQ ? 'quarter' : 'month')
+                                        if (isQ) setSelectedQuarter(parts[0])
+                                        else setSelectedMonth(parts[0])
+                                        setSelectedYear(Number(parts[1])) 
+                                    }}
                                     style={{
                                         padding: '0.2rem 0.625rem', borderRadius: 99,
                                         border: '1px solid #e2e8f0', background: 'white',
@@ -381,30 +510,30 @@ export default function PerformancePage() {
                                             {members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
                                         </select>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                         <div className="form-group">
-                                            <label className="form-label">Kuartal *</label>
-                                            <select className="form-select" required value={form.quarter || ''} onChange={e => setForm({ ...form, quarter: e.target.value })}>
-                                                {QUARTERS.map(q => <option key={q} value={q}>{q}</option>)}
+                                            <label className="form-label">Bulan *</label>
+                                            <select className="form-select" required value={form.month} onChange={e => setForm({ ...form, month: e.target.value })}>
+                                                {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
                                             </select>
                                         </div>
                                         <div className="form-group">
                                             <label className="form-label">Tahun *</label>
-                                            <select className="form-select" required value={form.year || ''} onChange={e => setForm({ ...form, year: e.target.value })}>
+                                            <select className="form-select" required value={form.year} onChange={e => setForm({ ...form, year: e.target.value })}>
                                                 {getYears().map(y => <option key={y} value={y}>{y}</option>)}
                                             </select>
                                         </div>
-                                        <div className="form-group">
-                                            <label className="form-label">Score (0-100) *</label>
-                                            <input className="form-input" type="number" required min="0" max="100" step="0.1" value={form.score} onChange={e => setForm({ ...form, score: e.target.value })} />
-                                        </div>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Score (0-100) *</label>
+                                        <input className="form-input" type="number" required min="0" max="100" step="0.1" value={form.score} onChange={e => setForm({ ...form, score: e.target.value })} />
                                     </div>
                                     <div className="form-group">
                                         <label className="form-label">Catatan</label>
                                         <textarea className="form-textarea" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Catatan evaluasi (opsional)..." />
                                     </div>
                                     <div style={{ padding: '0.75rem', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: '0.8125rem', color: '#64748b' }}>
-                                        📅 Periode: <strong>{form.quarter} {form.year}</strong>
+                                        📅 Periode: <strong>{form.month} {form.year}</strong>
                                     </div>
                                 </div>
                                 <div className="modal-footer">

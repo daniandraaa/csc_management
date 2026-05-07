@@ -16,16 +16,23 @@ interface CsvImportModalProps {
 }
 
 function parseCSV(text: string): { headers: string[]; rows: string[][] } {
-    const lines = text.trim().split('\n')
+    const lines = text.trim().split(/\r?\n/)
     if (lines.length < 2) return { headers: [], rows: [] }
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''))
+    
+    // Detect delimiter: check if first line has more semicolons than commas
+    const firstLine = lines[0]
+    const commaCount = (firstLine.match(/,/g) || []).length
+    const semiCount = (firstLine.match(/;/g) || []).length
+    const delimiter = semiCount > commaCount ? ';' : ','
+    
+    const headers = firstLine.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''))
     const rows = lines.slice(1).map(line => {
         const result: string[] = []
         let current = ''
         let inQuotes = false
         for (const char of line) {
             if (char === '"') { inQuotes = !inQuotes }
-            else if (char === ',' && !inQuotes) { result.push(current.trim()); current = '' }
+            else if (char === delimiter && !inQuotes) { result.push(current.trim()); current = '' }
             else { current += char }
         }
         result.push(current.trim())

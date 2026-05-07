@@ -112,10 +112,12 @@ export default function DashboardPage() {
             const { data: rProg } = await supabase.from('programs').select('name, created_at').order('created_at', { ascending: false }).limit(2)
             const { data: rReim } = await supabase.from('reimbursements').select('title, status, created_at').order('created_at', { ascending: false }).limit(2)
             const { data: rDocs } = await supabase.from('documents').select('title, created_at').order('created_at', { ascending: false }).limit(2)
+            const { data: rMemb } = await supabase.from('members').select('full_name, created_at').order('created_at', { ascending: false }).limit(2)
             
             rProg?.forEach(p => logs.push({ id: `p-${p.name}`, action: `Program baru: ${p.name}`, time: formatDateShort(p.created_at), type: 'info', rawTime: p.created_at }))
             rReim?.forEach(r => logs.push({ id: `r-${r.title}`, action: `Reimburse: ${r.title} (${r.status})`, time: formatDateShort(r.created_at), type: r.status === 'pending' ? 'warning' : 'success', rawTime: r.created_at }))
             rDocs?.forEach(d => logs.push({ id: `d-${d.title}`, action: `Dokumen baru: ${d.title}`, time: formatDateShort(d.created_at), type: 'info', rawTime: d.created_at }))
+            rMemb?.forEach(m => logs.push({ id: `m-${m.full_name}`, action: `Anggota baru: ${m.full_name}`, time: formatDateShort(m.created_at), type: 'success', rawTime: m.created_at }))
             
             setRecentLogs(logs.sort((a, b) => new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime()).slice(0, 5))
 

@@ -50,9 +50,12 @@ export default function CounselingPage() {
         setShowModal(false); setEditId(null); setForm({ member_id: '', subject: '', description: '', preferred_date: '', preferred_time: '', status: 'pending', scheduled_date: '', scheduled_time: '', counselor_id: '', notes: '' }); loadData()
     }
 
-    async function handleCsvImport(rows: Record<string, string>[]) {
-        const payload = rows.map(r => ({ subject: r.subject, description: r.description || null, preferred_date: r.preferred_date || null, preferred_time: r.preferred_time || null, status: r.status || 'pending', member_id: members[0]?.id || null }))
-        await supabase.from('counseling_requests').insert(payload)
+    async function handleDelete(id: string) {
+        if (confirm('Hapus request konseling ini?')) {
+            const { error } = await supabase.from('counseling_requests').delete().eq('id', id)
+            if (error) alert("Gagal menghapus: " + error.message)
+            else { setShowModal(false); loadData() }
+        }
     }
 
     const filtered = requests.filter((r: any) => r.subject?.toLowerCase().includes(search.toLowerCase()) || (r.member?.full_name?.toLowerCase() || '').includes(search.toLowerCase()))
@@ -128,7 +131,13 @@ export default function CounselingPage() {
                                         <div className="form-group"><label className="form-label">Catatan</label><textarea className="form-textarea" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
                                     </>}
                                 </div>
-                                <div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Batal</button><button type="submit" className="btn btn-primary">{editId ? 'Simpan' : 'Request'}</button></div>
+                                <div className="modal-footer">
+                                    <div style={{ marginRight: 'auto' }}>
+                                        {editId && <button type="button" className="btn btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(editId)}>Hapus</button>}
+                                    </div>
+                                    <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Batal</button>
+                                    <button type="submit" className="btn btn-primary">{editId ? 'Simpan' : 'Request'}</button>
+                                </div>
                             </form>
                         </div>
                     </div>
