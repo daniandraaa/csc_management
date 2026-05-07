@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/lib/auth'
-import { formatCurrency, formatDateShort } from '@/lib/utils'
+import { formatCurrency, formatDateShort, getInitials } from '@/lib/utils'
 import {
     Users, FolderKanban, DollarSign, BarChart3,
     TrendingUp, TrendingDown, CalendarCheck, FileText,
