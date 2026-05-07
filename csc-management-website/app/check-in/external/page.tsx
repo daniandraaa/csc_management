@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CheckCircle2, User, Building, AlertCircle, Loader2, QrCode, Camera } from 'lucide-react'
-import { Html5QrcodeScanner } from 'html5-qrcode'
+import { Html5Qrcode } from 'html5-qrcode'
 
 function ExternalCheckInContent() {
     const searchParams = useSearchParams()
@@ -56,32 +56,48 @@ function ExternalCheckInContent() {
     }
 
     useEffect(() => {
-        if (step === 'scanner' && scannerActive) {
-            const scanner = new Html5QrcodeScanner(
-                "reader",
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                /* verbose= */ false
-            );
+        let html5QrCode: Html5Qrcode | null = null;
 
-            scanner.render(onScanSuccess, onScanFailure);
-
-            function onScanSuccess(decodedText: string) {
-                if (decodedText === session.qr_token) {
-                    scanner.clear();
-                    submitCheckIn();
-                } else {
-                    alert("QR Code tidak valid untuk sesi ini. Pastikan Anda melakukan scan pada QR yang disediakan panitia.");
+        if (step === 'scanner' && scannerActive && session) {
+            html5QrCode = new Html5Qrcode("reader");
+            
+            const startScanner = async () => {
+                try {
+                    await html5QrCode?.start(
+                        { facingMode: "environment" },
+                        {
+                            fps: 10,
+                            qrbox: { width: 250, height: 250 },
+                        },
+                        (decodedText) => {
+                            if (decodedText === session.qr_token) {
+                                html5QrCode?.stop().then(() => {
+                                    submitCheckIn();
+                                }).catch(err => console.error(err));
+                            } else {
+                                alert("QR Code tidak valid untuk sesi ini. Pastikan Anda melakukan scan pada QR yang disediakan panitia.");
+                            }
+                        },
+                        (errorMessage) => {
+                            // parse error, ignore
+                        }
+                    );
+                } catch (err) {
+                    console.error("Gagal memulai scanner:", err);
+                    alert("Tidak dapat mengakses kamera. Pastikan Anda memberikan izin kamera dan menggunakan koneksi HTTPS jika tidak di localhost.");
+                    setStep('form');
+                    setScannerActive(false);
                 }
-            }
+            };
 
-            function onScanFailure(error: any) {
-                // handle scan failure, usually better to ignore and keep scanning
-            }
-
-            return () => {
-                scanner.clear().catch(e => console.error(e));
-            }
+            startScanner();
         }
+
+        return () => {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().catch(err => console.error("Error stopping scanner:", err));
+            }
+        };
     }, [step, scannerActive, session])
 
     async function submitCheckIn() {
@@ -201,9 +217,9 @@ function ExternalCheckInContent() {
                     </form>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                        <div id="reader" style={{ width: '100%', overflow: 'hidden', borderRadius: '1rem', border: '1px solid #e2e8f0' }}></div>
+                        <div id="reader" style={{ width: '100%', overflow: 'hidden', borderRadius: '1rem', border: '1px solid #e2e8f0', background: '#000', minHeight: '300px' }}></div>
                         <div style={{ textAlign: 'center' }}>
-                            <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1rem' }}>Sedang mencari QR Code...</p>
+                            <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1rem' }}>Membuka kamera...</p>
                             <button className="btn btn-ghost" onClick={() => setStep('form')} style={{ color: '#64748b' }}>
                                 Kembali ke Form
                             </button>

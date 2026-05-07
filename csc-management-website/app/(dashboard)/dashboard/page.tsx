@@ -128,7 +128,7 @@ export default function DashboardPage() {
                     <p className="page-subtitle">Community Support Center — Telkom University</p>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
                     <div className="stat-card">
                         <div className="stat-icon" style={{ background: 'var(--color-info-bg)', color: 'var(--color-info)' }}><Users size={22} /></div>
                         <div><div className="stat-value" style={{ color: 'var(--color-info)' }}>{memberCount}</div><div className="stat-label">Total Anggota</div></div>
@@ -282,7 +282,7 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                <div className="stats-grid">
                     <div className="stat-card">
                         <div className="stat-icon" style={{ background: '#fff1f2', color: '#e11d48' }}><CalendarCheck size={22} /></div>
                         <div>
@@ -313,6 +313,23 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </div>
+            <style jsx>{`
+                .stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 1rem;
+                }
+                @media (max-width: 1024px) {
+                    .stats-grid {
+                        grid-template-columns: repeat(2, 1fr);
+                    }
+                }
+                @media (max-width: 640px) {
+                    .stats-grid {
+                        grid-template-columns: 1fr;
+                    }
+                }
+            `}</style>
         </div>
     )
 }
