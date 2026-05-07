@@ -426,7 +426,7 @@ export default function PerformancePage() {
                                             color: getScoreColor(r.score),
                                         }}>
                                             {r.score}
-                                            {r.isAggregate && <Calculator size={12} title={`Rata-rata dari ${r.count} bulan`} />}
+                                            {r.isAggregate && <span title={`Rata-rata dari ${r.count} bulan`}><Calculator size={12} /></span>}
                                         </span>
                                     </td>
                                     <td style={{ width: 160 }}>

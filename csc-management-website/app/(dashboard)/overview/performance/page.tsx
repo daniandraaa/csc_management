@@ -205,7 +205,7 @@ export default function OverviewPerformancePage() {
                                 <div className="podium-score-wrapper" style={{ background: getScoreBg(r.score) }}>
                                     <span className="podium-score" style={{ color: getScoreColor(r.score), display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                                         {r.score}
-                                        {r.isAggregate && <Calculator size={14} title={`Rata-rata dari ${r.count} bulan`} />}
+                                        {r.isAggregate && <span title={`Rata-rata dari ${r.count} bulan`}><Calculator size={14} /></span>}
                                     </span>
                                 </div>
                                 <div className="podium-unit">poin</div>

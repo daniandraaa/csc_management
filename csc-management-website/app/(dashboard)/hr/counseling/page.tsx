@@ -58,6 +58,11 @@ export default function CounselingPage() {
         }
     }
 
+    async function handleCsvImport(rows: Record<string, string>[]) {
+        const payload = rows.map(r => ({ subject: r.subject, description: r.description || null, preferred_date: r.preferred_date || null, preferred_time: r.preferred_time || null, status: r.status || 'pending', member_id: members[0]?.id || null }))
+        await supabase.from('counseling_requests').insert(payload)
+    }
+
     const filtered = requests.filter((r: any) => r.subject?.toLowerCase().includes(search.toLowerCase()) || (r.member?.full_name?.toLowerCase() || '').includes(search.toLowerCase()))
     const exportData = filtered.map((r: any) => ({ ...r, _member: r.member?.full_name || '-', _counselor: r.counselor?.full_name || '-' }))
 
