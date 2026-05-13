@@ -90,7 +90,7 @@ export default function LaporanAdministrasiPage() {
         // Sum scores per dept
         if (evals) {
             evals.forEach(e => {
-                const dept = e.program?.department?.name || 'Lainnya'
+                const dept = (e.program as any)?.department?.name || 'Lainnya'
                 if (!deptStats[dept]) deptStats[dept] = { scoreSum: 0, count: 0, docs: 0 }
                 deptStats[dept].scoreSum += e.score || 0
                 deptStats[dept].count++

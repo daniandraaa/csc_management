@@ -67,7 +67,7 @@ export default function AdministrasiDashboard() {
             const recent = docs.slice(0, 5).map(d => ({
                 id: d.id,
                 nama: d.title,
-                jenis: d.document?.type === 'lpj' ? 'LPJ' : d.document?.type === 'proposal' ? 'Proposal' : 'TOR',
+                jenis: (d.document as any)?.type === 'lpj' ? 'LPJ' : (d.document as any)?.type === 'proposal' ? 'Proposal' : 'TOR',
                 proker: d.title.replace('Review: ', '').replace('LPJ ', '').replace('Proposal ', ''),
                 bidang: (d.submitter as any)?.department || '-',
                 pic: (d.submitter as any)?.full_name || '-',
@@ -91,8 +91,8 @@ export default function AdministrasiDashboard() {
                     revThisMonth += (r.revision_count || 0)
                     
                     // Deadline rule: Proposal (Start Date - 14 days), LPJ (End Date + 14 days)
-                    const prog = r.document?.program
-                    const type = r.document?.type?.toLowerCase()
+                    const prog = (r.document as any)?.program
+                    const type = (r.document as any)?.type?.toLowerCase()
                     if (prog && prog.start_date && type === 'proposal') {
                         const deadline = new Date(prog.start_date)
                         deadline.setDate(deadline.getDate() - 14)
@@ -189,7 +189,7 @@ export default function AdministrasiDashboard() {
 
             const deptStats: Record<string, { sum: number, count: number }> = {}
             evals.forEach(e => {
-                const dept = e.program?.department?.name || 'Lainnya'
+                const dept = (e.program as any)?.department?.name || 'Lainnya'
                 if (!deptStats[dept]) deptStats[dept] = { sum: 0, count: 0 }
                 deptStats[dept].sum += (e.score || 0)
                 deptStats[dept].count++

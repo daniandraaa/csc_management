@@ -41,11 +41,11 @@ export default function PenilaianPage() {
             setEvaluations(evals.map(d => ({
                 id: d.id,
                 program_id: d.program_id,
-                proker: d.program?.name || 'Unknown Program',
-                bidang: d.program?.department?.name || 'Unknown',
+                proker: (d.program as any)?.name || 'Unknown Program',
+                bidang: (d.program as any)?.department?.name || 'Unknown',
                 score: d.score,
                 comments: d.comments,
-                reviewer: d.evaluator?.full_name || 'Admin'
+                reviewer: (d.evaluator as any)?.full_name || 'Admin'
             })))
         }
 
