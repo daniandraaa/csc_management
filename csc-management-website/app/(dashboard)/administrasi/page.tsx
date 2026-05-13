@@ -69,8 +69,8 @@ export default function AdministrasiDashboard() {
                 nama: d.title,
                 jenis: d.document?.type === 'lpj' ? 'LPJ' : d.document?.type === 'proposal' ? 'Proposal' : 'TOR',
                 proker: d.title.replace('Review: ', '').replace('LPJ ', '').replace('Proposal ', ''),
-                bidang: d.submitter?.department || '-',
-                pic: d.submitter?.full_name || '-',
+                bidang: (d.submitter as any)?.department || '-',
+                pic: (d.submitter as any)?.full_name || '-',
                 tanggal: d.created_at,
                 status: d.admin_status,
                 revisi: d.revision_count || 0
@@ -145,7 +145,7 @@ export default function AdministrasiDashboard() {
             // Calculate Pie Chart (Statistik per bidang)
             const deptCounts: Record<string, number> = {}
             docs.forEach(d => {
-                const dept = d.submitter?.department || 'Lainnya'
+                const dept = (d.submitter as any)?.department || 'Lainnya'
                 deptCounts[dept] = (deptCounts[dept] || 0) + 1
             })
             const colors = ['#3b82f6', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4', '#64748b']

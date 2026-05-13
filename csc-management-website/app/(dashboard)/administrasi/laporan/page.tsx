@@ -81,7 +81,7 @@ export default function LaporanAdministrasiPage() {
         // Count docs per dept
         if (reviews) {
             reviews.forEach(r => {
-                const dept = r.submitter?.department || 'Lainnya'
+                const dept = (r.submitter as any)?.department || 'Lainnya'
                 if (!deptStats[dept]) deptStats[dept] = { scoreSum: 0, count: 0, docs: 0 }
                 deptStats[dept].docs++
             })
