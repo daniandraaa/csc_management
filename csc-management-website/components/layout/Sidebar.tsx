@@ -14,7 +14,7 @@ import {
     BarChart3, ClipboardCheck, FileText, Receipt, DollarSign,
     Handshake, Building2, Megaphone, PenTool, Newspaper,
     UserCheck, FileStack, ShieldCheck, LogOut, Shield,
-    KeyRound, X, Eye, EyeOff, MessageCircle, Send, ClipboardList, Menu, Bell, Mail
+    KeyRound, X, Eye, EyeOff, MessageCircle, Send, ClipboardList, Menu, Bell, Mail, Settings
 } from 'lucide-react'
 
 const navSections = [
@@ -94,8 +94,13 @@ const navSections = [
     {
         title: 'Administrasi',
         items: [
-            { label: 'Dokumen & Review', href: '/documents', icon: FileStack },
-            { label: 'Review Status', href: '/admin-review', icon: ShieldCheck, badgeKey: 'admin_review' },
+            { label: 'Dashboard', href: '/administrasi', icon: LayoutDashboard, exact: true },
+            { label: 'Semua Dokumen', href: '/documents', icon: FileStack },
+            { label: 'Template Dokumen', href: '/administrasi/templates', icon: FileText },
+            { label: 'Riwayat Revisi', href: '/admin-review', icon: Clock, badgeKey: 'admin_review' },
+            { label: 'Penilaian Administrasi', href: '/administrasi/penilaian', icon: ClipboardCheck },
+            { label: 'Laporan', href: '/administrasi/laporan', icon: BarChart3 },
+            { label: 'Pengaturan', href: '/administrasi/pengaturan', icon: Settings },
         ],
     },
 ]
@@ -274,7 +279,9 @@ export default function Sidebar() {
                         {section.items.map((item) => {
                             const Icon = item.icon
                             const [hrefPath] = item.href.split('?')
-                            const isActive = pathname === hrefPath || pathname?.startsWith(hrefPath + '/')
+                            const isActive = item.exact 
+                                ? pathname === hrefPath 
+                                : pathname === hrefPath || pathname?.startsWith(hrefPath + '/')
                             return (
                                 <Link
                                     key={item.href}

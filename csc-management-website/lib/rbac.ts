@@ -149,6 +149,11 @@ const PAGE_PERMISSIONS: PagePermission[] = [
     },
 
     // Administrasi
+    { path: '/administrasi', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
+    { path: '/administrasi/templates', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
+    { path: '/administrasi/penilaian', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
+    { path: '/administrasi/laporan', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
+    { path: '/administrasi/pengaturan', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration'], departments: ['all'] },
     {
         path: '/documents', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
         actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'] }
