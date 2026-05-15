@@ -21,12 +21,11 @@ export async function POST(request: Request) {
         }
 
         const remindDays = (settings.remind_days_before || '7,3,1').split(',').map((d: string) => parseInt(d.trim()))
-        const recipientOverride = settings.reminder_email_to
 
         // 2. Fetch admin reviews with deadlines
         const { data: reviews } = await supabase
             .from('admin_reviews')
-            .select('id, title, deadline, doc_type, admin_status, submitted_by, submitter:members!admin_reviews_submitted_by_fkey(full_name, email)')
+            .select('id, title, deadline, doc_type, admin_status, submitted_by, reminder_emails, submitter:members!admin_reviews_submitted_by_fkey(full_name, email)')
             .not('deadline', 'is', null)
             .neq('admin_status', 'approved')
 
@@ -50,7 +49,7 @@ export async function POST(request: Request) {
             if (!shouldRemind) continue
 
             const submitter = review.submitter as any
-            const recipientEmail = recipientOverride || submitter?.email
+            const recipientEmail = (review as any).reminder_emails || submitter?.email
             if (!recipientEmail) continue
 
             // Check if already sent today for this review + day combo
@@ -160,7 +159,7 @@ export async function POST(request: Request) {
 export async function GET() {
     const { data: reviews } = await supabase
         .from('admin_reviews')
-        .select('id, title, deadline, doc_type, admin_status, submitter:members!admin_reviews_submitted_by_fkey(full_name, email)')
+        .select('id, title, deadline, doc_type, admin_status, reminder_emails, submitter:members!admin_reviews_submitted_by_fkey(full_name, email)')
         .not('deadline', 'is', null)
         .neq('admin_status', 'approved')
         .order('deadline', { ascending: true })
@@ -177,6 +176,7 @@ export async function GET() {
             deadline: r.deadline, days_remaining: diff,
             status: r.admin_status,
             submitter: (r.submitter as any)?.full_name,
+            reminder_emails: (r as any).reminder_emails,
             urgency: diff < 0 ? 'overdue' : diff === 0 ? 'today' : diff <= 3 ? 'urgent' : diff <= 7 ? 'upcoming' : 'normal'
         }
     })

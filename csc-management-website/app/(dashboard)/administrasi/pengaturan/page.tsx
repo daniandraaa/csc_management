@@ -8,8 +8,10 @@ import '../admin-responsive.css'
 export default function PengaturanAdministrasiPage() {
     const [settings, setSettings] = useState({
         late_tolerance_days: 3, max_revisions: 5, target_compliance_score: 80,
-        auto_remind_overdue: true, remind_days_before: '7,3,1', reminder_email_to: ''
+        auto_remind_overdue: true, remind_days_before: '7,3,1'
     })
+    const [editingEmailDoc, setEditingEmailDoc] = useState<string | null>(null)
+    const [editEmail, setEditEmail] = useState('')
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
@@ -27,7 +29,7 @@ export default function PengaturanAdministrasiPage() {
         if (data) setSettings({
             late_tolerance_days: data.late_tolerance_days, max_revisions: data.max_revisions,
             target_compliance_score: data.target_compliance_score, auto_remind_overdue: data.auto_remind_overdue,
-            remind_days_before: data.remind_days_before || '7,3,1', reminder_email_to: data.reminder_email_to || ''
+            remind_days_before: data.remind_days_before || '7,3,1'
         })
         setLoading(false)
     }
@@ -62,6 +64,11 @@ export default function PengaturanAdministrasiPage() {
             setReminderResult({ error: err.message })
         }
         setSendingReminders(false)
+    }
+
+    async function saveDocEmail(docId: string) {
+        await supabase.from('admin_reviews').update({ reminder_emails: editEmail || null }).eq('id', docId)
+        setEditingEmailDoc(null); setEditEmail(''); loadDeadlineStatus()
     }
 
     if (loading) return <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--color-text-tertiary)' }}>Memuat pengaturan...</div>
@@ -167,10 +174,8 @@ export default function PengaturanAdministrasiPage() {
                                         <input className="form-input" value={settings.remind_days_before} onChange={e => setSettings({ ...settings, remind_days_before: e.target.value })} placeholder="7,3,1" style={{ borderRadius: 8, fontSize: '0.8125rem' }} />
                                         <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)', marginTop: 2 }}>Pisahkan dengan koma (cth: 7,3,1 = H-7, H-3, H-1)</div>
                                     </div>
-                                    <div>
-                                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4, display: 'block' }}>Email Tujuan (Override)</label>
-                                        <input className="form-input" type="email" value={settings.reminder_email_to} onChange={e => setSettings({ ...settings, reminder_email_to: e.target.value })} placeholder="Kosongkan = email PIC masing-masing" style={{ borderRadius: 8, fontSize: '0.8125rem' }} />
-                                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)', marginTop: 2 }}>Jika kosong, email dikirim ke PIC/pengaju dokumen</div>
+                                    <div style={{ padding: '0.5rem 0.75rem', background: '#f0fdf4', borderRadius: 8, fontSize: '0.6875rem', color: '#16a34a', lineHeight: 1.5 }}>
+                                        💡 Email dikirim ke PIC/pengaju masing-masing dokumen. Atur email khusus per dokumen di <strong>Monitor Deadline</strong> (klik ✏️).
                                     </div>
                                 </div>
                             )}
@@ -221,15 +226,29 @@ export default function PengaturanAdministrasiPage() {
                                     deadlineStatus.map((d: any) => {
                                         const u = urgencyColor[d.urgency] || urgencyColor.normal
                                         return (
-                                            <div key={d.id} style={{ padding: '8px 1rem', borderBottom: '1px solid #f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                                                <div style={{ minWidth: 0, flex: 1 }}>
-                                                    <div style={{ fontSize: '0.8125rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</div>
-                                                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)' }}>{d.doc_type} • {d.submitter || '-'}</div>
+                                            <div key={d.id} style={{ padding: '8px 1rem', borderBottom: '1px solid #f8fafc' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                                        <div style={{ fontSize: '0.8125rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</div>
+                                                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)' }}>{d.doc_type} • {d.submitter || '-'}</div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                                                        <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: u.text }}>{d.days_remaining < 0 ? `+${Math.abs(d.days_remaining)}` : `H-${d.days_remaining}`}</span>
+                                                        <span style={{ fontSize: '0.6rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600, background: u.bg, color: u.text }}>{u.label}</span>
+                                                        <button onClick={() => { setEditingEmailDoc(d.id); setEditEmail(d.reminder_emails || '') }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', padding: 2 }} title="Atur email reminder">✏️</button>
+                                                    </div>
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                                                    <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: u.text }}>{d.days_remaining < 0 ? `+${Math.abs(d.days_remaining)}` : `H-${d.days_remaining}`}</span>
-                                                    <span style={{ fontSize: '0.6rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600, background: u.bg, color: u.text }}>{u.label}</span>
-                                                </div>
+                                                {/* Inline email editor */}
+                                                {editingEmailDoc === d.id && (
+                                                    <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                                                        <input className="form-input" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="Email PIC (kosong = default)" style={{ flex: 1, fontSize: '0.75rem', padding: '4px 8px', borderRadius: 6 }} />
+                                                        <button onClick={() => saveDocEmail(d.id)} style={{ background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: '0.6875rem', fontWeight: 600, cursor: 'pointer' }}>💾</button>
+                                                        <button onClick={() => setEditingEmailDoc(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '4px 8px', fontSize: '0.6875rem', cursor: 'pointer' }}>✕</button>
+                                                    </div>
+                                                )}
+                                                {d.reminder_emails && editingEmailDoc !== d.id && (
+                                                    <div style={{ fontSize: '0.6rem', color: '#8b5cf6', marginTop: 2 }}>📧 {d.reminder_emails}</div>
+                                                )}
                                             </div>
                                         )
                                     })

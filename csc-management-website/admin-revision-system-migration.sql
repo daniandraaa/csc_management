@@ -34,6 +34,11 @@ ALTER TABLE admin_reviews ADD COLUMN IF NOT EXISTS program_id UUID REFERENCES pr
 ALTER TABLE admin_reviews ADD COLUMN IF NOT EXISTS doc_source TEXT DEFAULT 'standalone';
 ALTER TABLE admin_reviews ADD COLUMN IF NOT EXISTS deadline DATE;
 ALTER TABLE admin_reviews ADD COLUMN IF NOT EXISTS doc_type TEXT DEFAULT 'Proposal';
+ALTER TABLE admin_reviews ADD COLUMN IF NOT EXISTS doc_score INTEGER;
+ALTER TABLE admin_reviews ADD COLUMN IF NOT EXISTS scored_by UUID REFERENCES members(id) ON DELETE SET NULL;
+ALTER TABLE admin_reviews ADD COLUMN IF NOT EXISTS scored_at TIMESTAMPTZ;
+ALTER TABLE admin_reviews ADD COLUMN IF NOT EXISTS score_notes TEXT;
+ALTER TABLE admin_reviews ADD COLUMN IF NOT EXISTS reminder_emails TEXT;
 
 -- 3. Add program_type to programs
 ALTER TABLE programs ADD COLUMN IF NOT EXISTS program_type TEXT DEFAULT 'internal';
