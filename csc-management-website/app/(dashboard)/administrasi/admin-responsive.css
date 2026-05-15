@@ -1,0 +1,99 @@
+/* Responsive styles for Administrasi pages */
+
+/* Dashboard hero banner */
+.admin-hero { display: flex; justify-content: space-between; align-items: center; }
+.admin-hero-stats { display: flex; gap: 12px; }
+.admin-hero-stat { text-align: center; padding: 8px 20px; border-radius: 12px; }
+
+/* Dashboard main grid */
+.admin-main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+.admin-charts-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 1rem; }
+
+/* Laporan summary stats */
+.admin-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+
+/* Penilaian summary stats */
+.admin-penilaian-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+
+/* Penilaian evaluation card layout */
+.admin-eval-card-inner { display: flex; align-items: stretch; }
+.admin-eval-score-col { width: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--color-border-primary); padding: 1.25rem 0; flex-shrink: 0; }
+
+/* Template stats bar */
+.admin-template-stats { display: flex; gap: 1.5rem; margin-top: 1.25rem; flex-wrap: wrap; }
+
+/* Header with action button */
+.admin-page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; gap: 1rem; }
+
+/* Laporan podium */
+.admin-podium { display: flex; justify-content: center; align-items: flex-end; gap: 1rem; margin-bottom: 2rem; }
+
+/* Tabs container */
+.admin-tabs { display: flex; gap: 4px; background: var(--color-bg-secondary); padding: 4px; border-radius: 12px; margin-bottom: 1.5rem; width: fit-content; }
+
+/* Template grid */
+.admin-template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+
+/* ===== TABLET (768px and below) ===== */
+@media (max-width: 768px) {
+    /* Dashboard */
+    .admin-hero { flex-direction: column; align-items: flex-start; gap: 1rem; }
+    .admin-hero-stats { flex-wrap: wrap; gap: 8px; width: 100%; }
+    .admin-hero-stat { flex: 1; min-width: 70px; padding: 6px 10px; }
+    .admin-hero-stat > div:first-child { font-size: 1.125rem !important; }
+    
+    .admin-main-grid { grid-template-columns: 1fr; }
+    .admin-charts-grid { grid-template-columns: 1fr; }
+    
+    /* Laporan */
+    .admin-stats-row { grid-template-columns: repeat(2, 1fr); }
+    
+    /* Penilaian */
+    .admin-penilaian-stats { grid-template-columns: repeat(2, 1fr); }
+    
+    /* Podium */
+    .admin-podium { flex-wrap: wrap; gap: 0.75rem; }
+    .admin-podium > div { width: calc(33% - 0.5rem) !important; min-width: 110px; }
+    
+    /* Templates */
+    .admin-template-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+    .admin-template-stats { gap: 0.5rem; }
+    .admin-template-stats > div { font-size: 0.75rem !important; padding: 4px 10px !important; }
+    
+    /* Tabs scroll */
+    .admin-tabs { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .admin-tabs::-webkit-scrollbar { display: none; }
+}
+
+/* ===== MOBILE (480px and below) ===== */
+@media (max-width: 480px) {
+    /* Dashboard */
+    .admin-hero-stats { gap: 6px; }
+    .admin-hero-stat { min-width: 60px; padding: 6px 8px; }
+    .admin-hero-stat > div:first-child { font-size: 1rem !important; }
+    .admin-hero-stat > div:last-child { font-size: 0.5625rem !important; }
+    
+    /* Laporan & Penilaian */
+    .admin-stats-row { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .admin-penilaian-stats { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    
+    /* Penilaian eval cards */
+    .admin-eval-card-inner { flex-direction: column; }
+    .admin-eval-score-col { width: 100%; flex-direction: row; gap: 12px; border-right: none; border-bottom: 1px solid var(--color-border-primary); padding: 1rem 1.25rem; }
+    
+    /* Header stack */
+    .admin-page-header { flex-direction: column; }
+    .admin-page-header > button, .admin-page-header > a { width: 100%; }
+    
+    /* Podium */
+    .admin-podium > div { width: calc(50% - 0.5rem) !important; }
+    
+    /* Templates */
+    .admin-template-grid { grid-template-columns: 1fr; }
+    .admin-template-stats { gap: 6px; }
+    .admin-template-stats > div { padding: 3px 8px !important; font-size: 0.6875rem !important; }
+    
+    /* Tabs */
+    .admin-tabs { gap: 2px; padding: 3px; }
+    .admin-tabs button { font-size: 0.75rem !important; padding: 6px 12px !important; white-space: nowrap; }
+}

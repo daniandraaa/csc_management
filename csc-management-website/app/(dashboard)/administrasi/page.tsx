@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts'
 import { getStatusColor, getStatusLabel, formatDateShort } from '@/lib/utils'
+import './admin-responsive.css'
 
 export default function AdministrasiDashboard() {
     const [loading, setLoading] = useState(true)
@@ -291,34 +292,50 @@ export default function AdministrasiDashboard() {
         }
     }
 
+    const cScore = complianceScore
+    const cColor = cScore >= 80 ? '#10b981' : cScore >= 60 ? '#f59e0b' : cScore > 0 ? '#ef4444' : '#cbd5e1'
+
     return (
         <div>
-            <div className="topbar">
-                <div className="topbar-title">Dashboard Administrasi</div>
-            </div>
+            <div className="topbar"><div className="topbar-title">Dashboard Administrasi</div></div>
             <div className="page-container" style={{ maxWidth: 1400, margin: '0 auto' }}>
-                <div style={{ marginBottom: '1.5rem' }}>
-                    <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <LayoutDashboardIcon /> Dashboard Administrasi
-                    </h1>
-                    <p className="page-subtitle">Kelola dan pantau semua dokumen administrasi program kerja</p>
+                {/* Hero Banner */}
+                <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)', borderRadius: 16, padding: '1.75rem 2rem', marginBottom: '1.5rem', color: '#fff', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
+                    <div style={{ position: 'absolute', bottom: -60, right: 80, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.02)' }} />
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                        <div className="admin-hero">
+                            <div>
+                                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 6px 0' }}>Dashboard Administrasi</h1>
+                                <p style={{ fontSize: '0.875rem', color: '#94a3b8', margin: 0 }}>Kelola dan pantau semua dokumen administrasi program kerja</p>
+                            </div>
+                            <div className="admin-hero-stats">
+                                <div className="admin-hero-stat" style={{ background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.total}</div>
+                                    <div style={{ fontSize: '0.6875rem', color: '#94a3b8' }}>Total Dokumen</div>
+                                </div>
+                                <div className="admin-hero-stat" style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#34d399' }}>{stats.approved}</div>
+                                    <div style={{ fontSize: '0.6875rem', color: '#6ee7b7' }}>Approved</div>
+                                </div>
+                                <div className="admin-hero-stat" style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#fbbf24' }}>{stats.pending}</div>
+                                    <div style={{ fontSize: '0.6875rem', color: '#fcd34d' }}>Pending</div>
+                                </div>
+                                <div className="admin-hero-stat" style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#60a5fa' }}>{stats.revisi}</div>
+                                    <div style={{ fontSize: '0.6875rem', color: '#93c5fd' }}>Revisi</div>
+                                </div>
+                                <div className="admin-hero-stat" style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f87171' }}>{stats.overdue}</div>
+                                    <div style={{ fontSize: '0.6875rem', color: '#fca5a5' }}>Overdue</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {/* KPI Cards */}
-                <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-                    gap: '1rem', 
-                    marginBottom: '1.5rem' 
-                }}>
-                    <StatCard icon={<FileText size={24} />} title="Total Dokumen" value={stats.total} subtitle="Semua dokumen masuk" color="#8b5cf6" bg="#f5f3ff" />
-                    <StatCard icon={<FileWarning size={24} />} title="Pending Review" value={stats.pending} subtitle="Menunggu pemeriksaan" color="#f59e0b" bg="#fffbeb" />
-                    <StatCard icon={<FileEdit size={24} />} title="Perlu Revisi" value={stats.revisi} subtitle="Dokumen perlu diperbaiki" color="#3b82f6" bg="#eff6ff" />
-                    <StatCard icon={<CheckCircle2 size={24} />} title="Approved" value={stats.approved} subtitle="Dokumen disetujui" color="#10b981" bg="#ecfdf5" />
-                    <StatCard icon={<Clock size={24} />} title="Overdue" value={stats.overdue} subtitle="Melewati deadline" color="#ef4444" bg="#fef2f2" />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem', alignItems: 'start' }}>
+                <div className="admin-main-grid">
                     {/* Left Column */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         
@@ -396,11 +413,13 @@ export default function AdministrasiDashboard() {
                         </div>
  
                         {/* Bottom Charts Row */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '1.5rem' }}>
+                        <div className="admin-charts-grid">
                             {/* Pie Chart */}
-                            <div className="card">
-                                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Statistik Dokumen per Bidang</h3>
-                                <div style={{ display: 'flex', alignItems: 'center', height: 180 }}>
+                            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border-primary)' }}>
+                                    <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, margin: 0 }}>Distribusi per Bidang</h3>
+                                </div>
+                                <div style={{ padding: '1rem', display: 'flex', alignItems: 'center', height: 180 }}>
                                     <div style={{ width: '50%', height: '100%' }}>
                                         <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
@@ -434,38 +453,46 @@ export default function AdministrasiDashboard() {
                                 </div>
                             </div>
  
-                            {/* Gauge Chart */}
-                            <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
-                                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Compliance Score <span style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', fontWeight: 400 }}>(Rata-rata)</span></h3>
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                    <GaugeChart score={complianceScore} />
-                                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
-                                        {totalEvaluated} dinilai dari {totalPrograms} program kerja
+                            {/* Compliance Score */}
+                            <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border-primary)' }}>
+                                    <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, margin: 0 }}>Compliance Score</h3>
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1.25rem', background: `linear-gradient(180deg, ${cColor}06, transparent)` }}>
+                                    <div style={{ width: 100, height: 100, borderRadius: '50%', border: `6px solid #f1f5f9`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                                        <svg width="100" height="100" style={{ position: 'absolute', top: -3, left: -3, transform: 'rotate(-90deg)' }}><circle cx="50" cy="50" r="47" fill="none" stroke={cColor} strokeWidth="6" strokeLinecap="round" strokeDasharray={`${(cScore / 100) * 295} 295`} style={{ transition: 'stroke-dasharray 1s ease' }} /></svg>
+                                        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.5rem', fontWeight: 700, color: cColor }}>{cScore}%</div></div>
                                     </div>
-                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-brand-600)', marginTop: '0.5rem' }}>Lihat Detail</button>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: cColor, marginBottom: 4 }}>{cScore >= 80 ? 'Baik' : cScore >= 60 ? 'Perlu Ditingkatkan' : cScore > 0 ? 'Kritis' : 'Belum Dinilai'}</div>
+                                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)' }}>{totalEvaluated} dari {totalPrograms} proker dinilai</div>
                                 </div>
                             </div>
  
                             {/* Leaderboard */}
-                            <div className="card">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                    <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Leaderboard Bidang</h3>
+                            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Trophy size={16} color="#f59e0b" />
+                                    <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, margin: 0 }}>Leaderboard</h3>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                <div style={{ padding: '0.75rem 1.25rem' }}>
                                     {leaderboardData.length === 0 ? (
-                                        <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-tertiary)', textAlign: 'center', padding: '1rem' }}>Belum ada data penilaian</div>
-                                    ) : leaderboardData.slice(0, 5).map((item, idx) => (
-                                        <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                <span style={{ fontWeight: 600, width: 16 }}>{idx + 1}</span>
-                                                {idx === 0 ? <Trophy size={14} color="#f59e0b" /> : <div style={{ width: 14 }} />}
-                                                <span style={{ fontWeight: idx === 0 ? 600 : 400 }}>{item.bidang}</span>
+                                        <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-tertiary)', textAlign: 'center', padding: '1.5rem 0' }}>Belum ada data</div>
+                                    ) : leaderboardData.slice(0, 5).map((item, idx) => {
+                                        const barColor = idx === 0 ? '#10b981' : idx === 1 ? '#3b82f6' : idx === 2 ? '#f59e0b' : '#94a3b8'
+                                        return (
+                                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: idx < 4 ? '1px solid var(--color-border-primary)' : 'none' }}>
+                                                <span style={{ width: 20, height: 20, borderRadius: 6, background: idx < 3 ? barColor + '18' : '#f8fafc', color: barColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6875rem', fontWeight: 700 }}>{idx + 1}</span>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontSize: '0.8125rem', fontWeight: 500, marginBottom: 3 }}>{item.bidang}</div>
+                                                    <div style={{ height: 4, borderRadius: 2, background: '#f1f5f9', overflow: 'hidden' }}>
+                                                        <div style={{ height: '100%', width: `${item.score}%`, background: `linear-gradient(90deg, ${barColor}, ${barColor}88)`, borderRadius: 2, transition: 'width 0.8s ease' }} />
+                                                    </div>
+                                                </div>
+                                                <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: barColor }}>{item.score}</span>
                                             </div>
-                                            <span style={{ fontWeight: 600, color: idx === 0 ? '#10b981' : 'var(--color-text-primary)' }}>{item.score}</span>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
-                                <button className="btn btn-ghost btn-sm" style={{ width: '100%', marginTop: '1rem', color: 'var(--color-brand-600)' }}>Lihat Selengkapnya</button>
                             </div>
                         </div>
                     </div>
@@ -474,70 +501,66 @@ export default function AdministrasiDashboard() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         
                         {/* Ringkasan Bulan Ini */}
-                        <div className="card">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                                <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Ringkasan Bulan Ini</h3>
+                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                            <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6' }} />
+                                <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, margin: 0 }}>Ringkasan Bulan Ini</h3>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.875rem' }}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-text-secondary)' }}><FileEdit size={16} /> Total Revisi</span>
-                                    <span style={{ fontWeight: 600 }}>{ringkasanBulanIni.totalRevisi} kali</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.875rem' }}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-text-secondary)' }}><AlertTriangle size={16} /> Rata-rata Revisi / Dokumen</span>
-                                    <span style={{ fontWeight: 600 }}>{ringkasanBulanIni.rataRata} kali</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.875rem' }}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-text-secondary)' }}><CheckCircle2 size={16} /> Dokumen Tepat Waktu</span>
-                                    <span style={{ fontWeight: 600 }}>{ringkasanBulanIni.tepatWaktu}%</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.875rem' }}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-text-secondary)' }}><Clock size={16} /> Dokumen Terlambat</span>
-                                    <span style={{ fontWeight: 600 }}>{ringkasanBulanIni.terlambat} dokumen</span>
-                                </div>
+                            <div style={{ padding: '0.25rem 0' }}>
+                                {[
+                                    { icon: <FileEdit size={15} />, label: 'Total Revisi', value: `${ringkasanBulanIni.totalRevisi} kali`, color: '#3b82f6' },
+                                    { icon: <AlertTriangle size={15} />, label: 'Rata-rata Revisi', value: `${ringkasanBulanIni.rataRata} kali`, color: '#f59e0b' },
+                                    { icon: <CheckCircle2 size={15} />, label: 'Tepat Waktu', value: `${ringkasanBulanIni.tepatWaktu}%`, color: '#10b981' },
+                                    { icon: <Clock size={15} />, label: 'Terlambat', value: `${ringkasanBulanIni.terlambat} dok`, color: '#ef4444' },
+                                ].map((item, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 1.25rem', borderBottom: i < 3 ? '1px solid var(--color-border-primary)' : 'none', fontSize: '0.8125rem' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-text-secondary)' }}>
+                                            <span style={{ color: item.color }}>{item.icon}</span> {item.label}
+                                        </span>
+                                        <span style={{ fontWeight: 700, color: item.color, fontSize: '0.875rem' }}>{item.value}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
  
                         {/* Kesalahan Paling Sering */}
-                        <div className="card">
-                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem' }}>Kesalahan Paling Sering</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                            <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
+                                <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, margin: 0 }}>Kesalahan Umum</h3>
+                            </div>
+                            <div style={{ padding: '0.5rem 1.25rem' }}>
                                 {kesalahanSering.length === 0 ? (
-                                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-tertiary)', textAlign: 'center' }}>Belum ada catatan kesalahan bulan ini</div>
+                                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-tertiary)', textAlign: 'center', padding: '1.5rem 0' }}>Belum ada catatan</div>
                                 ) : kesalahanSering.map((item, idx) => (
-                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8125rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                            <span style={{ 
-                                                width: 20, height: 20, borderRadius: '50%', background: '#fffbeb', color: '#d97706', 
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6875rem', fontWeight: 600 
-                                            }}>
-                                                {idx + 1}
-                                            </span>
-                                            <span>{item.masalah}</span>
-                                        </div>
-                                        <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>{item.count}x</span>
+                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: idx < kesalahanSering.length - 1 ? '1px solid var(--color-border-primary)' : 'none', fontSize: '0.8125rem' }}>
+                                        <span style={{ width: 22, height: 22, borderRadius: 6, background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6875rem', fontWeight: 700, flexShrink: 0 }}>{idx + 1}</span>
+                                        <span style={{ flex: 1 }}>{item.masalah}</span>
+                                        <span style={{ fontWeight: 700, color: '#d97706', background: '#fef3c7', padding: '2px 8px', borderRadius: 6, fontSize: '0.75rem' }}>{item.count}x</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
  
                         {/* Deadline Terdekat */}
-                        <div className="card">
-                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem' }}>Deadline Terdekat</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                            <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
+                                <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, margin: 0 }}>Deadline Terdekat</h3>
+                            </div>
+                            <div style={{ padding: '0.5rem 1.25rem' }}>
                                 {deadlinesData.length === 0 ? (
-                                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-tertiary)', textAlign: 'center' }}>Tidak ada deadline dalam waktu dekat</div>
+                                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-tertiary)', textAlign: 'center', padding: '1.5rem 0' }}>Tidak ada deadline</div>
                                 ) : deadlinesData.map((item, idx) => (
-                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: idx < deadlinesData.length - 1 ? '1px solid var(--color-border-primary)' : 'none' }}>
                                         <div>
-                                            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{item.judul}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>{item.tgl}</div>
+                                            <div style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{item.judul}</div>
+                                            <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)' }}>{item.tgl}</div>
                                         </div>
-                                        <span style={{ color: item.status.includes('Terlewat') ? '#ef4444' : item.status === 'Hari Ini' ? '#ef4444' : '#f59e0b', fontWeight: 600, fontSize: '0.875rem' }}>{item.status}</span>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: item.status.includes('Terlewat') || item.status === 'Hari Ini' ? '#fef2f2' : '#fffbeb', color: item.status.includes('Terlewat') || item.status === 'Hari Ini' ? '#ef4444' : '#d97706' }}>{item.status}</span>
                                     </div>
                                 ))}
                             </div>
-                            <button className="btn btn-ghost btn-sm" style={{ width: '100%', marginTop: '1rem', color: 'var(--color-brand-600)' }}>Lihat Semua Deadline</button>
                         </div>
  
                     </div>
@@ -560,7 +583,10 @@ function LayoutDashboardIcon() {
  
 function StatCard({ icon, title, value, subtitle, color, bg }: { icon: React.ReactNode, title: string, value: string | number, subtitle: string, color: string, bg: string }) {
     return (
-        <div className="card" style={{ padding: '1.25rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div className="card" style={{ padding: '1.25rem', display: 'flex', gap: '1rem', alignItems: 'center', transition: 'transform 0.2s, box-shadow 0.2s', cursor: 'default' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.06)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
+        >
             <div style={{ width: 48, height: 48, borderRadius: 12, background: bg, color: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {icon}
             </div>
