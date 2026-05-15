@@ -129,17 +129,20 @@ export default function PenilaianPage() {
                         <span style={{ fontSize: '0.6875rem', color: '#94a3b8' }}>—</span>
                     )}
                     <span style={{ fontSize: '0.6rem', padding: '2px 6px', borderRadius: 4, fontWeight: 600, background: st.bg, color: st.c }}>{st.l}</span>
-                    {/* Quick actions */}
-                    {doc.admin_status === 'pending' && (
-                        <div style={{ display: 'flex', gap: 3 }}>
-                            <button title="Approve" onClick={() => quickScore(doc.id, 'approved')} style={{ background: '#ecfdf5', color: '#10b981', border: 'none', borderRadius: 4, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>✓</button>
-                            <button title="Revisi" onClick={() => quickScore(doc.id, 'revision_needed')} style={{ background: '#eff6ff', color: '#3b82f6', border: 'none', borderRadius: 4, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>↩</button>
-                        </div>
+                    {/* Actions restricted to BOE */}
+                    {currentUser?.role === 'BOE' && (
+                        <>
+                            {doc.admin_status === 'pending' && (
+                                <div style={{ display: 'flex', gap: 3 }}>
+                                    <button title="Approve" onClick={() => quickScore(doc.id, 'approved')} style={{ background: '#ecfdf5', color: '#10b981', border: 'none', borderRadius: 4, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>✓</button>
+                                    <button title="Revisi" onClick={() => quickScore(doc.id, 'revision_needed')} style={{ background: '#eff6ff', color: '#3b82f6', border: 'none', borderRadius: 4, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>↩</button>
+                                </div>
+                            )}
+                            <button onClick={() => openReview(doc)} style={{ background: '#f5f3ff', color: '#8b5cf6', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: '0.6875rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <ClipboardCheck size={11} /> Review
+                            </button>
+                        </>
                     )}
-                    {/* Full review button */}
-                    <button onClick={() => openReview(doc)} style={{ background: '#f5f3ff', color: '#8b5cf6', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: '0.6875rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <ClipboardCheck size={11} /> Review
-                    </button>
                 </div>
             </div>
         )

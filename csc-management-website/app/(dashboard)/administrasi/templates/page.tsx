@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { FileText, Download, Search, Plus, X, Pencil, Trash2, FileSpreadsheet, File, FolderOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useCurrentUser } from '@/lib/auth'
 import { formatDateShort } from '@/lib/utils'
 import '../admin-responsive.css'
 
@@ -15,6 +16,7 @@ const typeConfig: Record<string, { icon: any, gradient: string, badge: string }>
 }
 
 export default function TemplatesPage() {
+    const { currentUser } = useCurrentUser()
     const [templates, setTemplates] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
@@ -76,7 +78,9 @@ export default function TemplatesPage() {
                             </h1>
                             <p className="page-subtitle">Kelola format baku dokumen administrasi program kerja.</p>
                         </div>
-                        <button className="btn btn-primary" onClick={openAddModal} style={{ gap: 6 }}><Plus size={16} /> Tambah Template</button>
+                        {currentUser?.role === 'BOE' && (
+                            <button className="btn btn-primary" onClick={openAddModal} style={{ gap: 6 }}><Plus size={16} /> Tambah Template</button>
+                        )}
                     </div>
                     {/* Stats Bar */}
                     <div className="admin-template-stats">
@@ -126,16 +130,18 @@ export default function TemplatesPage() {
                                             <div style={{ width: 44, height: 44, borderRadius: 12, background: cfg.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
                                                 <Icon size={22} />
                                             </div>
-                                            <div style={{ display: 'flex', gap: 4 }}>
-                                                <button onClick={() => openEditModal(t)} title="Edit" style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--color-border-primary)', background: 'var(--color-bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-text-secondary)', transition: 'all 0.15s' }}
-                                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-brand)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-brand)' }}
-                                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border-primary)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-text-secondary)' }}
-                                                ><Pencil size={14} /></button>
-                                                <button onClick={() => handleDelete(t.id)} title="Hapus" style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--color-border-primary)', background: 'var(--color-bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-text-secondary)', transition: 'all 0.15s' }}
-                                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#ef4444'; (e.currentTarget as HTMLElement).style.color = '#ef4444' }}
-                                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border-primary)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-text-secondary)' }}
-                                                ><Trash2 size={14} /></button>
-                                            </div>
+                                            {currentUser?.role === 'BOE' && (
+                                                <div style={{ display: 'flex', gap: 4 }}>
+                                                    <button onClick={() => openEditModal(t)} title="Edit" style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--color-border-primary)', background: 'var(--color-bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-text-secondary)', transition: 'all 0.15s' }}
+                                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-brand)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-brand)' }}
+                                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border-primary)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-text-secondary)' }}
+                                                    ><Pencil size={14} /></button>
+                                                    <button onClick={() => handleDelete(t.id)} title="Hapus" style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--color-border-primary)', background: 'var(--color-bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-text-secondary)', transition: 'all 0.15s' }}
+                                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#ef4444'; (e.currentTarget as HTMLElement).style.color = '#ef4444' }}
+                                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border-primary)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-text-secondary)' }}
+                                                    ><Trash2 size={14} /></button>
+                                                </div>
+                                            )}
                                         </div>
                                         <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 4, color: 'var(--color-text-primary)' }}>{t.name}</h3>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '1rem' }}>
