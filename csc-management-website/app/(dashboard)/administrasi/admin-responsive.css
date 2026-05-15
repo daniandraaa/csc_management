@@ -97,3 +97,10 @@
     .admin-tabs { gap: 2px; padding: 3px; }
     .admin-tabs button { font-size: 0.75rem !important; padding: 6px 12px !important; white-space: nowrap; }
 }
+
+/* Pengaturan 2-column layout */
+@media (max-width: 768px) {
+    .page-container > div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}

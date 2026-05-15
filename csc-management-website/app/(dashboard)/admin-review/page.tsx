@@ -6,7 +6,7 @@ import { useCurrentUser } from '@/lib/auth'
 import { useSearchParams } from 'next/navigation'
 import { canPerformAction, isSecretary, isAdministration, isBOE } from '@/lib/rbac'
 import { getStatusColor, getStatusLabel, formatDateShort, getInitials } from '@/lib/utils'
-import { ShieldCheck, Plus, X, Search, CheckCircle2, XCircle, AlertCircle, Trash2, Edit } from 'lucide-react'
+import { ShieldCheck, Plus, X, Search, CheckCircle2, XCircle, AlertCircle, Trash2, Edit, RotateCcw, History } from 'lucide-react'
 
 export default function AdminReviewPage() {
     const { currentUser } = useCurrentUser()
@@ -20,7 +20,10 @@ export default function AdminReviewPage() {
     const [showReview, setShowReview] = useState<any>(null)
     const [form, setForm] = useState({ title: '', description: '', submitted_by: '', file_url: '', link_url: '', change_description: '', document_id: '' })
     const [reviewForm, setReviewForm] = useState({ secretary_status: '', secretary_notes: '', admin_status: '', admin_notes: '' })
-    const [editId, setEditId] = useState<string | null>(null)
+    const [showHistory, setShowHistory] = useState<any>(null)
+    const [revisionLogs, setRevisionLogs] = useState<any[]>([])
+    const [revisionNote, setRevisionNote] = useState('')
+    const [showRevisionModal, setShowRevisionModal] = useState<any>(null)
 
     const canCreate = canPerformAction(currentUser, '/admin-review', 'create')
     const canReview = canPerformAction(currentUser, '/admin-review', 'approve')
@@ -73,6 +76,32 @@ export default function AdminReviewPage() {
         }
 
         setReviews(filtered); setMembers(m || []); setDocuments(d || []); setLoading(false)
+    }
+
+    const [editId, setEditId] = useState<string | null>(null)
+
+    async function loadRevisionLogs(reviewId: string) {
+        const { data } = await supabase.from('admin_revision_logs').select('*, reviewer:members!admin_revision_logs_revised_by_fkey(full_name,role)').eq('review_id', reviewId).order('revision_number', { ascending: true })
+        setRevisionLogs(data || [])
+    }
+
+    async function openHistory(review: any) {
+        setShowHistory(review)
+        await loadRevisionLogs(review.id)
+    }
+
+    async function addRevision(reviewId: string) {
+        if (!revisionNote.trim()) { alert('Masukkan catatan revisi'); return }
+        const currentReview = reviews.find(r => r.id === reviewId)
+        const nextNum = (currentReview?.revision_count || 0) + 1
+        const { error } = await supabase.from('admin_revision_logs').insert({
+            review_id: reviewId, revision_number: nextNum,
+            revised_by: currentUser?.id || null, revision_notes: revisionNote,
+            status_before: currentReview?.admin_status || 'pending', status_after: 'revision_needed'
+        })
+        if (error) { alert('Error: ' + error.message); return }
+        await supabase.from('admin_reviews').update({ revision_count: nextNum, admin_status: 'revision_needed' }).eq('id', reviewId)
+        setRevisionNote(''); setShowRevisionModal(null); loadData()
     }
 
     async function handleSubmit(e: React.FormEvent) {
@@ -234,6 +263,8 @@ export default function AdminReviewPage() {
                                             <td data-label="Aksi">
                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                     {canReview && <button className="btn btn-secondary btn-sm" onClick={() => openReview(r)}>Review</button>}
+                                                    {canReview && <button className="btn btn-sm" style={{ background: '#fef3c7', color: '#d97706', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, borderRadius: 6, padding: '4px 10px', fontWeight: 600, fontSize: '0.75rem' }} onClick={() => setShowRevisionModal(r)} title="Ajukan Revisi"><RotateCcw size={13} /> Revisi</button>}
+                                                    <button className="btn btn-ghost btn-sm btn-icon" title="Riwayat Log" onClick={() => openHistory(r)}><History size={14} /></button>
                                                     {(canCreate && r.submitted_by === currentUser?.id || userIsAdmin || userIsExecutive) && (
                                                         <button className="btn btn-ghost btn-sm btn-icon" title="Edit" onClick={() => openEdit(r)}><Edit size={14} /></button>
                                                     )}
@@ -331,6 +362,62 @@ export default function AdminReviewPage() {
                                 </div>
                             </div>
                             <div className="modal-footer"><button className="btn btn-secondary" onClick={() => setShowReview(null)}>Batal</button><button className="btn btn-primary" onClick={() => handleReview(showReview.id)}>Simpan Review</button></div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Revision Modal */}
+                {showRevisionModal && (
+                    <div className="modal-overlay" onClick={() => setShowRevisionModal(null)}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                            <div className="modal-header"><h2>Ajukan Revisi</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowRevisionModal(null)}><X size={18} /></button></div>
+                            <div className="modal-body">
+                                <div style={{ padding: '0.75rem', background: '#fffbeb', borderRadius: 8, marginBottom: '1rem', fontSize: '0.8125rem' }}>
+                                    <strong>{showRevisionModal.title}</strong><br/>
+                                    <span style={{ color: '#92400e' }}>Revisi ke-{(showRevisionModal.revision_count || 0) + 1}</span>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Catatan Revisi *</label>
+                                    <textarea className="form-textarea" placeholder="Jelaskan apa yang perlu direvisi..." value={revisionNote} onChange={e => setRevisionNote(e.target.value)} style={{ minHeight: 100 }} />
+                                </div>
+                            </div>
+                            <div className="modal-footer"><button className="btn btn-secondary" onClick={() => setShowRevisionModal(null)}>Batal</button><button className="btn btn-primary" onClick={() => addRevision(showRevisionModal.id)}>Submit Revisi</button></div>
+                        </div>
+                    </div>
+                )}
+
+                {/* History Modal */}
+                {showHistory && (
+                    <div className="modal-overlay" onClick={() => setShowHistory(null)}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+                            <div className="modal-header"><h2>Riwayat Revisi</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowHistory(null)}><X size={18} /></button></div>
+                            <div className="modal-body">
+                                <div style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: 8, marginBottom: '1rem' }}>
+                                    <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{showHistory.title}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>Total revisi: {showHistory.revision_count || 0}x • Pengaju: {showHistory.submitter?.full_name || '-'}</div>
+                                </div>
+                                {revisionLogs.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-tertiary)', fontSize: '0.8125rem' }}>Belum ada log revisi</div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                        {revisionLogs.map((log, idx) => (
+                                            <div key={log.id} style={{ display: 'flex', gap: 12, position: 'relative', paddingLeft: 24, paddingBottom: idx < revisionLogs.length - 1 ? 16 : 0 }}>
+                                                {idx < revisionLogs.length - 1 && <div style={{ position: 'absolute', left: 7, top: 18, bottom: 0, width: 2, background: '#e2e8f0' }} />}
+                                                <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#fef3c7', border: '2px solid #f59e0b', flexShrink: 0, position: 'absolute', left: 0, top: 2 }} />
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ fontWeight: 600, fontSize: '0.8125rem', color: '#d97706' }}>Revisi #{log.revision_number}</span>
+                                                        <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)' }}>{new Date(log.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>Oleh: <strong>{(log.reviewer as any)?.full_name || '-'}</strong></div>
+                                                    {log.revision_notes && <div style={{ fontSize: '0.8125rem', marginTop: 6, padding: '0.5rem 0.75rem', background: '#fffbeb', borderRadius: 6, borderLeft: '3px solid #f59e0b' }}>{log.revision_notes}</div>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="modal-footer"><button className="btn btn-primary" onClick={() => setShowHistory(null)}>Tutup</button></div>
                         </div>
                     </div>
                 )}

@@ -59,7 +59,7 @@ export default function AdministrasiDashboard() {
             .select(`
                 *,
                 submitter:members!admin_reviews_submitted_by_fkey(full_name,department,role),
-                document:documents(title, document_number, file_url, type, program:programs(name, start_date, end_date))
+                program:programs(name, start_date, end_date)
             `)
             .order('created_at', { ascending: false })
 
@@ -68,8 +68,8 @@ export default function AdministrasiDashboard() {
             const recent = docs.slice(0, 5).map(d => ({
                 id: d.id,
                 nama: d.title,
-                jenis: (d.document as any)?.type === 'lpj' ? 'LPJ' : (d.document as any)?.type === 'proposal' ? 'Proposal' : 'TOR',
-                proker: d.title.replace('Review: ', '').replace('LPJ ', '').replace('Proposal ', ''),
+                jenis: d.doc_type || 'Dokumen',
+                proker: (d.program as any)?.name || d.title.replace('Review: ', ''),
                 bidang: (d.submitter as any)?.department || '-',
                 pic: (d.submitter as any)?.full_name || '-',
                 tanggal: d.created_at,
@@ -92,8 +92,8 @@ export default function AdministrasiDashboard() {
                     revThisMonth += (r.revision_count || 0)
                     
                     // Deadline rule: Proposal (Start Date - 14 days), LPJ (End Date + 14 days)
-                    const prog = (r.document as any)?.program
-                    const type = (r.document as any)?.type?.toLowerCase()
+                    const prog = (r.program as any)
+                    const type = (r.doc_type || '').toLowerCase()
                     if (prog && prog.start_date && type === 'proposal') {
                         const deadline = new Date(prog.start_date)
                         deadline.setDate(deadline.getDate() - 14)
@@ -343,72 +343,32 @@ export default function AdministrasiDashboard() {
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                             <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--color-border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>Dokumen Terbaru</h3>
-                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-brand-600)' }}>Lihat Semua Dokumen</button>
+                                <a href="/administrasi/dokumen" className="btn btn-ghost btn-sm" style={{ color: 'var(--color-brand-600)' }}>Lihat Semua</a>
                             </div>
-                            <div style={{ overflowX: 'auto' }}>
-                                <table className="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Nama Dokumen</th>
-                                            <th>Jenis</th>
-                                            <th>Program Kerja</th>
-                                            <th>Bidang</th>
-                                            <th>PIC</th>
-                                            <th>Tanggal Submit</th>
-                                            <th style={{ textAlign: 'center' }}>Status</th>
-                                            <th style={{ textAlign: 'center' }}>Revisi</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {recentDocs.length === 0 ? (
-                                            <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem' }}>Belum ada dokumen</td></tr>
-                                        ) : recentDocs.map((doc, idx) => {
-                                            const tc = typeColor(doc.jenis)
-                                            return (
-                                                <tr key={idx}>
-                                                    <td>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                <FileText size={16} />
-                                                            </div>
-                                                            <div>
-                                                                <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{doc.nama}</div>
-                                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>{doc.proker}</div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td><span style={{ background: tc.bg, color: tc.text, padding: '2px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 500 }}>{doc.jenis || 'Lainnya'}</span></td>
-                                                    <td style={{ fontSize: '0.8125rem' }}>{doc.proker}</td>
-                                                    <td style={{ fontSize: '0.8125rem' }}>{doc.bidang}</td>
-                                                    <td>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 600 }}>
-                                                                {doc.pic.substring(0,2).toUpperCase()}
-                                                            </div>
-                                                            <span style={{ fontSize: '0.8125rem' }}>{doc.pic.split(' ')[0]}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <div style={{ fontSize: '0.8125rem' }}>{formatDateShort(doc.tanggal)}</div>
-                                                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)' }}>
-                                                            {new Date(doc.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        <span className={`badge badge-${getStatusColor(doc.status)}`} style={{ fontSize: '0.6875rem' }}>
-                                                            {doc.status === 'revision_needed' ? 'Perlu Revisi' : doc.status === 'approved' ? 'Approved' : 'On Review'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ textAlign: 'center', fontSize: '0.8125rem' }}>{doc.revisi}x</td>
-                                                    <td>
-                                                        <button className="btn btn-ghost btn-sm btn-icon"><MoreVertical size={16} /></button>
-                                                    </td>
-                                                </tr>
-                                            )
-                                        })}
-                                    </tbody>
-                                </table>
+                            <div style={{ padding: '0.5rem 1.25rem' }}>
+                                {recentDocs.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-tertiary)', fontSize: '0.8125rem' }}>Belum ada dokumen administrasi</div>
+                                ) : recentDocs.map((doc, idx) => {
+                                    const tc = typeColor(doc.jenis)
+                                    return (
+                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: idx < recentDocs.length - 1 ? '1px solid var(--color-border-primary)' : 'none', gap: 12, flexWrap: 'wrap' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 180 }}>
+                                                <div style={{ width: 32, height: 32, borderRadius: 8, background: tc.bg, color: tc.text, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><FileText size={15} /></div>
+                                                <div style={{ minWidth: 0 }}>
+                                                    <div style={{ fontWeight: 500, fontSize: '0.8125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nama}</div>
+                                                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)' }}>{doc.proker} • {doc.pic}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                                                <span style={{ background: tc.bg, color: tc.text, padding: '2px 8px', borderRadius: 6, fontSize: '0.6875rem', fontWeight: 600 }}>{doc.jenis}</span>
+                                                {doc.revisi > 0 && <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#d97706' }}>{doc.revisi}x</span>}
+                                                <span className={`badge badge-${getStatusColor(doc.status)}`} style={{ fontSize: '0.6875rem' }}>
+                                                    {doc.status === 'revision_needed' ? 'Revisi' : doc.status === 'approved' ? 'OK' : 'Pending'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
                             </div>
                         </div>
  

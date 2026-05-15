@@ -16,6 +16,7 @@ const TYPES = [
     { value: 'event', label: 'Event', icon: '🎉', color: '#3b82f6' },
     { value: 'invitation', label: 'Undangan', icon: '✉️', color: '#10b981' },
     { value: 'announcement', label: 'Pengumuman', icon: '📢', color: '#8b5cf6' },
+    { value: 'admin_deadline', label: 'Deadline Admin', icon: '📄', color: '#ec4899' },
 ]
 
 const CSV_COLUMNS = [
@@ -89,7 +90,16 @@ export default function TimelinePage() {
         const { data: m } = await supabase.from('members').select('id,full_name,role')
         const { data: p } = await supabase.from('programs').select('*').not('start_date', 'is', null)
         const { data: i } = await supabase.from('guest_invitations').select('*').not('event_date', 'is', null)
-        setItems(data || []); setMembers(m || []); setPrograms(p || []); setInvitations(i || []); setLoading(false)
+        setItems(data || []); setMembers(m || []); setPrograms(p || []); setInvitations(i || [])
+        // Fetch admin deadlines
+        const { data: ad } = await supabase.from('admin_reviews').select('id, title, deadline, doc_type, admin_status').not('deadline', 'is', null)
+        const adminDeadlines = (ad || []).map((a: any) => ({
+            id: `admin-${a.id}`, title: `📄 ${a.doc_type || 'Dokumen'}: ${a.title}`,
+            type: 'admin_deadline', event_date: a.deadline, end_date: a.deadline,
+            description: `Deadline administrasi - Status: ${a.admin_status}`, _isAdminDeadline: true,
+        }))
+        setInvitations(i || []); setItems([...(data || []), ...adminDeadlines])
+        setLoading(false)
     }
 
     const emptyForm = {

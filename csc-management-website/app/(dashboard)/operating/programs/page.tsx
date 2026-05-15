@@ -24,7 +24,7 @@ export default function ProgramsPage() {
     const [form, setForm] = useState({ 
         name: '', description: '', objectives: '', start_date: '', end_date: '', 
         status: 'on_track', budget: '', department_id: '', pic_id: '',
-        completion_percentage: 0, sop_sent: false
+        completion_percentage: 0, sop_sent: false, program_type: 'internal'
     })
     const [editId, setEditId] = useState<string | null>(null)
     const [partnerForm, setPartnerForm] = useState({ partner_name: '', contact_person: '', contact_email: '', role_description: '' })
@@ -48,7 +48,8 @@ export default function ProgramsPage() {
             department_id: form.department_id || null, 
             start_date: form.start_date || null, 
             end_date: form.end_date || null,
-            completion_percentage: parseInt(form.completion_percentage.toString()) || 0
+            completion_percentage: parseInt(form.completion_percentage.toString()) || 0,
+            program_type: form.program_type || 'internal'
         }
         if (editId) { await supabase.from('programs').update(payload).eq('id', editId) } else { await supabase.from('programs').insert(payload) }
         setShowModal(false); setEditId(null); resetForm(); loadData()
@@ -58,7 +59,7 @@ export default function ProgramsPage() {
         setForm({ 
             name: '', description: '', objectives: '', start_date: '', end_date: '', 
             status: 'on_track', budget: '', department_id: '', pic_id: '',
-            completion_percentage: 0, sop_sent: false
+            completion_percentage: 0, sop_sent: false, program_type: 'internal'
         })
     }
 
@@ -104,13 +105,14 @@ export default function ProgramsPage() {
 
                 <div className="data-table-container">
                     <table className="data-table">
-                        <thead><tr><th>Program</th><th>Bidang</th><th>PIC</th><th>Completion</th><th>SOP Sent?</th><th>Status</th><th>Aksi</th></tr></thead>
+                        <thead><tr><th>Program</th><th>Tipe</th><th>Bidang</th><th>PIC</th><th>Completion</th><th>SOP Sent?</th><th>Status</th><th>Aksi</th></tr></thead>
                         <tbody>
                             {loading ? <tr><td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>Memuat...</td></tr> :
-                                filtered.length === 0 ? <tr><td colSpan={7}><div className="empty-state"><FolderKanban size={48} /><h3>Belum ada proker</h3></div></td></tr> :
+                                filtered.length === 0 ? <tr><td colSpan={8}><div className="empty-state"><FolderKanban size={48} /><h3>Belum ada proker</h3></div></td></tr> :
                                     filtered.map((p: any) => (
                                         <tr key={p.id}>
                                             <td style={{ fontWeight: 600 }}>{p.name}</td>
+                                            <td><span style={{ padding: '2px 8px', borderRadius: 6, fontSize: '0.6875rem', fontWeight: 600, background: p.program_type === 'collaboration' ? '#fef3c7' : '#dbeafe', color: p.program_type === 'collaboration' ? '#d97706' : '#2563eb' }}>{p.program_type === 'collaboration' ? 'Kolaborasi' : 'Internal'}</span></td>
                                             <td>{p.department?.name || '-'}</td>
                                             <td>{p.pic?.full_name || '-'}</td>
                                             <td>
@@ -128,7 +130,7 @@ export default function ProgramsPage() {
                                             <td>
                                                 <div style={{ display: 'flex', gap: 4 }}>
                                                     <button className="btn btn-ghost btn-sm" title="Lihat Detail" onClick={() => viewDetail(p)}><Eye size={14} /></button>
-                                                    <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ name: p.name, description: p.description || '', objectives: p.objectives || '', start_date: p.start_date || '', end_date: p.end_date || '', status: p.status, budget: p.budget?.toString() || '', department_id: p.department_id || '', pic_id: p.pic_id || '', completion_percentage: p.completion_percentage || 0, sop_sent: p.sop_sent || false }); setEditId(p.id); setShowModal(true) }}>Edit</button>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ name: p.name, description: p.description || '', objectives: p.objectives || '', start_date: p.start_date || '', end_date: p.end_date || '', status: p.status, budget: p.budget?.toString() || '', department_id: p.department_id || '', pic_id: p.pic_id || '', completion_percentage: p.completion_percentage || 0, sop_sent: p.sop_sent || false, program_type: p.program_type || 'internal' }); setEditId(p.id); setShowModal(true) }}>Edit</button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -145,6 +147,17 @@ export default function ProgramsPage() {
                             <form onSubmit={handleSubmit}>
                                 <div className="modal-body">
                                     <div className="form-group"><label className="form-label">Nama Program *</label><input className="form-input" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+                                    <div className="form-group">
+                                        <label className="form-label">Tipe Program *</label>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            {[{v:'internal',l:'🏢 Internal CSC',d:'Program kerja internal organisasi'},{v:'collaboration',l:'🤝 Kolaborasi',d:'Kolaborasi dengan pihak eksternal'}].map(opt => (
+                                                <div key={opt.v} onClick={() => setForm({...form, program_type: opt.v})} style={{ flex: 1, padding: '0.6rem', borderRadius: 8, border: `2px solid ${form.program_type === opt.v ? '#8b5cf6' : 'var(--color-border-primary)'}`, background: form.program_type === opt.v ? '#faf5ff' : 'white', cursor: 'pointer', transition: 'all 0.2s' }}>
+                                                    <div style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{opt.l}</div>
+                                                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)' }}>{opt.d}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="form-group"><label className="form-label">Bidang</label><select className="form-select" value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}><option value="">Pilih</option>{departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
                                         <div className="form-group"><label className="form-label">PIC</label><select className="form-select" value={form.pic_id} onChange={e => setForm({ ...form, pic_id: e.target.value })}><option value="">Pilih</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>

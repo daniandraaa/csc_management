@@ -95,7 +95,7 @@ const navSections = [
         title: 'Administrasi',
         items: [
             { label: 'Dashboard', href: '/administrasi', icon: LayoutDashboard, exact: true },
-            { label: 'Semua Dokumen', href: '/documents', icon: FileStack },
+            { label: 'Dokumen Administrasi', href: '/administrasi/dokumen', icon: FileStack },
             { label: 'Template Dokumen', href: '/administrasi/templates', icon: FileText },
             { label: 'Riwayat Revisi', href: '/admin-review', icon: Clock, badgeKey: 'admin_review' },
             { label: 'Penilaian Administrasi', href: '/administrasi/penilaian', icon: ClipboardCheck },
