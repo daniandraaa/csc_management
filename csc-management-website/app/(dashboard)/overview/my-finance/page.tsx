@@ -15,6 +15,7 @@ export default function MyFinancePage() {
     const [showPayModal, setShowPayModal] = useState(false)
     const [payForm, setPayForm] = useState({ month: '', amount: '', receipt_url: '', notes: '' })
     const [submitting, setSubmitting] = useState(false)
+    const [editId, setEditId] = useState<string | null>(null)
 
     useEffect(() => {
         if (currentUser) {
