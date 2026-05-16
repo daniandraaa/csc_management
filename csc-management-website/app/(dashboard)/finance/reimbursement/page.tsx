@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/lib/auth'
 import { canManageModule } from '@/lib/rbac'
 import { getStatusColor, getStatusLabel, formatDateShort, formatCurrency } from '@/lib/utils'
-import { Receipt, Plus, X, Search, Upload, Download, FileText } from 'lucide-react'
+import { Receipt, Plus, X, Search, Upload, Download, FileText, CheckCircle2 } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
 import { exportToPdf, exportToCsv } from '@/lib/export'
 
@@ -107,9 +107,45 @@ export default function ReimbursementPage() {
                 <h1 className="page-title">{canManage ? 'Manajemen Reimbursement' : 'Reimbursement Saya'}</h1>
                 <p className="page-subtitle">{canManage ? 'Proses pengajuan dan persetujuan reimbursement' : 'Pantau status pengajuan pengembalian dana Anda'}</p>
 
-                <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-                    <div className="stat-card" style={{ borderLeft: '3px solid var(--color-warning)' }}><div className="stat-icon" style={{ background: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}><Receipt size={20} /></div><div><div className="stat-value" style={{ color: 'var(--color-warning)' }}>{items.filter(i => i.status === 'pending').length}</div><div className="stat-label">Pending · {formatCurrency(totalPending)}</div></div></div>
-                    <div className="stat-card" style={{ borderLeft: '3px solid var(--color-success)' }}><div className="stat-icon" style={{ background: 'var(--color-success-bg)', color: 'var(--color-success)' }}><Receipt size={20} /></div><div><div className="stat-value" style={{ color: 'var(--color-success)' }}>{items.filter(i => i.status === 'approved' || i.status === 'paid').length}</div><div className="stat-label">Approved · {formatCurrency(totalApproved)}</div></div></div>
+                <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+                    <div className="stat-card" style={{ 
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                        padding: '1.5rem'
+                    }}>
+                        <div className="stat-icon" style={{ 
+                            background: 'rgba(245, 158, 11, 0.1)', 
+                            color: '#f59e0b',
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '12px'
+                        }}><Receipt size={24} /></div>
+                        <div>
+                            <div className="stat-label" style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Pending</div>
+                            <div className="stat-value" style={{ color: '#f59e0b', fontSize: '1.5rem', fontWeight: 700 }}>{items.filter(i => i.status === 'pending').length}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Total: {formatCurrency(totalPending)}</div>
+                        </div>
+                    </div>
+                    <div className="stat-card" style={{ 
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                        padding: '1.5rem'
+                    }}>
+                        <div className="stat-icon" style={{ 
+                            background: 'rgba(16, 185, 129, 0.1)', 
+                            color: '#10b981',
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '12px'
+                        }}><CheckCircle2 size={24} /></div>
+                        <div>
+                            <div className="stat-label" style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Approved / Paid</div>
+                            <div className="stat-value" style={{ color: '#10b981', fontSize: '1.5rem', fontWeight: 700 }}>{items.filter(i => i.status === 'approved' || i.status === 'paid').length}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Total: {formatCurrency(totalApproved)}</div>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="toolbar" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -126,35 +162,57 @@ export default function ReimbursementPage() {
                     </div>
                 </div>
 
-                <div className="data-table-container">
-                    <table className="data-table">
-                        <thead><tr><th>Anggota</th><th>Judul</th><th>Program</th><th>Jumlah</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead>
+                <div className="data-table-container" style={{ borderRadius: '1.25rem', border: '1px solid var(--border-color)', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', overflow: 'hidden', background: 'var(--bg-primary)' }}>
+                    <table className="data-table" style={{ borderCollapse: 'separate', borderSpacing: '0' }}>
+                        <thead>
+                            <tr style={{ background: 'var(--bg-secondary)' }}>
+                                <th style={{ padding: '1.25rem 1rem' }}>Anggota</th>
+                                <th>Judul / Deskripsi</th>
+                                <th>Program</th>
+                                <th>Jumlah</th>
+                                <th>Tanggal</th>
+                                <th>Status</th>
+                                <th style={{ textAlign: 'right', paddingRight: '1.5rem' }}>Aksi</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             {loading ? <tr><td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>Memuat...</td></tr> :
                                 items.length === 0 ? <tr><td colSpan={7}><div className="empty-state"><Receipt size={48} /><h3>Belum ada reimbursement</h3></div></td></tr> :
                                     items.map((r: any) => (
-                                        <tr key={r.id}>
-                                            <td data-label="Anggota" style={{ fontWeight: 500 }}>{r.member?.full_name}</td>
-                                            <td data-label="Judul">{r.title}</td>
-                                            <td data-label="Program">{r.program?.name || '-'}</td>
-                                            <td data-label="Jumlah" style={{ fontWeight: 600 }}>
-                                                {r.reimbursed_amount && r.reimbursed_amount !== r.amount ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                        <span style={{ textDecoration: 'line-through', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{formatCurrency(r.amount)}</span>
-                                                        <span style={{ color: 'var(--color-success)' }}>{formatCurrency(r.reimbursed_amount)}</span>
-                                                    </div>
-                                                ) : formatCurrency(r.amount)}
+                                        <tr key={r.id} className="table-row-hover">
+                                            <td data-label="Anggota" style={{ padding: '1.25rem 1rem' }}>
+                                                <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{r.member?.full_name}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>NIM: {r.member?.nim || '-'}</div>
                                             </td>
-                                            <td data-label="Tanggal">{formatDateShort(r.created_at)}</td>
-                                            <td data-label="Status"><span className={`badge badge-${getStatusColor(r.status)}`}>{getStatusLabel(r.status)}</span></td>
-                                            <td>
+                                            <td data-label="Judul">
+                                                <div style={{ fontWeight: 500 }}>{r.title}</div>
+                                                {r.description && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</div>}
+                                            </td>
+                                            <td data-label="Program">{r.program?.name || <span style={{ color: 'var(--text-tertiary)' }}>-</span>}</td>
+                                            <td data-label="Jumlah">
+                                                <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                    {r.reimbursed_amount && r.reimbursed_amount !== r.amount ? (
+                                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                            <span style={{ textDecoration: 'line-through', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{formatCurrency(r.amount)}</span>
+                                                            <span style={{ color: '#10b981' }}>{formatCurrency(r.reimbursed_amount)}</span>
+                                                        </div>
+                                                    ) : formatCurrency(r.amount)}
+                                                </div>
+                                            </td>
+                                            <td data-label="Tanggal" style={{ fontSize: '0.8125rem' }}>{formatDateShort(r.created_at)}</td>
+                                            <td data-label="Status">
+                                                <span className={`badge badge-${getStatusColor(r.status)}`} style={{ borderRadius: '0.5rem', padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>
+                                                    {getStatusLabel(r.status)}
+                                                </span>
+                                            </td>
+                                            <td style={{ textAlign: 'right', paddingRight: '1rem' }}>
                                                 {canManage ? (
-                                                    <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                                        <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ member_id: r.member_id, program_id: r.program_id || '', title: r.title, description: r.description || '', amount: r.amount.toString(), receipt_url: r.receipt_url || '', status: r.status, notes: r.notes || '', reimbursed_amount: r.reimbursed_amount?.toString() || r.amount.toString() }); setEditId(r.id); setShowModal(true) }}>Review</button>
-                                                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={async () => { if (confirm('Hapus reimbursement ini?')) { await supabase.from('reimbursements').delete().eq('id', r.id); loadData() } }}>Hapus</button>
+                                                    <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
+                                                        <button className="btn btn-ghost btn-sm" style={{ borderRadius: '0.5rem' }} onClick={() => { setForm({ member_id: r.member_id, program_id: r.program_id || '', title: r.title, description: r.description || '', amount: r.amount.toString(), receipt_url: r.receipt_url || '', status: r.status, notes: r.notes || '', reimbursed_amount: r.reimbursed_amount?.toString() || r.amount.toString() }); setEditId(r.id); setShowModal(true) }}>Review</button>
+                                                        <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444', borderRadius: '0.5rem' }} onClick={async () => { if (confirm('Hapus reimbursement ini?')) { await supabase.from('reimbursements').delete().eq('id', r.id); loadData() } }}><X size={14} /></button>
                                                     </div>
                                                 ) : (
-                                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Disubmit</span>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 500 }}>Disubmit</span>
                                                 )}
                                             </td>
                                         </tr>

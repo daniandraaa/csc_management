@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/lib/auth'
 import { formatDateShort } from '@/lib/utils'
-import { UserCheck, Plus, X, Package, CheckCircle2, XCircle, Briefcase } from 'lucide-react'
+import { UserCheck, Plus, X, Package, CheckCircle2, XCircle, Briefcase, Clock } from 'lucide-react'
 import { canManageModule } from '@/lib/rbac'
 import { useRouter } from 'next/navigation'
 
@@ -131,23 +131,79 @@ export default function OverviewPRRequestPage() {
                     </div>
                 )}
 
-                <div className="toolbar" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                    <div className="toolbar-left">
-                        <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                            {requests.length} permintaan
-                        </span>
+                <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+                    <div className="stat-card" style={{ 
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                        padding: '1.25rem'
+                    }}>
+                        <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}><Clock size={20} /></div>
+                        <div>
+                            <div className="stat-label" style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Pending</div>
+                            <div className="stat-value" style={{ color: '#f59e0b', fontSize: '1.25rem', fontWeight: 700 }}>{requests.filter(r => r.status === 'pending').length}</div>
+                        </div>
+                    </div>
+                    <div className="stat-card" style={{ 
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                        padding: '1.25rem'
+                    }}>
+                        <div className="stat-icon" style={{ background: 'rgba(37, 99, 235, 0.1)', color: '#2563eb' }}><Package size={20} /></div>
+                        <div>
+                            <div className="stat-label" style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Diproses</div>
+                            <div className="stat-value" style={{ color: '#2563eb', fontSize: '1.25rem', fontWeight: 700 }}>{requests.filter(r => r.status === 'in_progress').length}</div>
+                        </div>
+                    </div>
+                    <div className="stat-card" style={{ 
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                        padding: '1.25rem'
+                    }}>
+                        <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}><CheckCircle2 size={20} /></div>
+                        <div>
+                            <div className="stat-label" style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Selesai</div>
+                            <div className="stat-value" style={{ color: '#10b981', fontSize: '1.25rem', fontWeight: 700 }}>{requests.filter(r => r.status === 'completed').length}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="toolbar" style={{ 
+                    marginBottom: '1.5rem', 
+                    background: 'var(--bg-secondary)', 
+                    padding: '0.75rem 1rem', 
+                    borderRadius: '1rem',
+                    border: '1px solid var(--border-color)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                }}>
+                    <div className="toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ padding: '0.4rem 0.8rem', borderRadius: '2rem', background: 'var(--bg-primary)', fontSize: '0.8125rem', fontWeight: 600, border: '1px solid var(--border-color)' }}>
+                            {requests.length} Permintaan PR
+                        </div>
                     </div>
                     <div className="toolbar-right">
-                        <button className="btn btn-primary btn-sm" style={{ padding: '0.5rem 1rem' }} onClick={() => setShowModal(true)}>
-                            <Plus size={16} /> <span className="hidden sm:inline">Ajukan Baru</span><span className="sm:hidden">Ajukan</span>
+                        <button className="btn btn-primary" style={{ borderRadius: '0.75rem', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }} onClick={() => setShowModal(true)}>
+                            <Plus size={18} /> Ajukan Baru
                         </button>
                     </div>
                 </div>
 
                 {/* Requests List */}
-                <div className="data-table-container">
-                    <table className="data-table">
-                        <thead><tr><th>Judul</th>{canManage && <th>Pengaju</th>}<th>Deadline</th><th>Status</th><th>{canManage ? 'Aksi' : 'Catatan'}</th></tr></thead>
+                <div className="data-table-container" style={{ borderRadius: '1.25rem', border: '1px solid var(--border-color)', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', overflow: 'hidden', background: 'var(--bg-primary)' }}>
+                    <table className="data-table" style={{ borderCollapse: 'separate', borderSpacing: '0' }}>
+                        <thead>
+                            <tr style={{ background: 'var(--bg-secondary)' }}>
+                                <th style={{ padding: '1.25rem 1rem' }}>Judul / Kebutuhan</th>
+                                {canManage && <th>Pengaju</th>}
+                                <th>Deadline</th>
+                                <th>Status</th>
+                                <th style={{ textAlign: 'right', paddingRight: '1.5rem' }}>{canManage ? 'Aksi' : 'Catatan PR'}</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             {loading ? (
                                 <tr><td colSpan={canManage ? 5 : 4} style={{ textAlign: 'center', padding: '3rem' }}>Memuat...</td></tr>
@@ -156,47 +212,50 @@ export default function OverviewPRRequestPage() {
                             ) : requests.map((r: any) => {
                                 const st = statusStyles[r.status] || statusStyles.pending
                                 return (
-                                    <tr key={r.id}>
-                                        <td>
-                                            <div style={{ fontWeight: 500 }}>{r.title}</div>
-                                            {r.description && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</div>}
+                                    <tr key={r.id} className="table-row-hover">
+                                        <td data-label="Judul" style={{ padding: '1.25rem 1rem' }}>
+                                            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{r.title}</div>
+                                            {r.description && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</div>}
                                         </td>
                                         {canManage && (
-                                            <td style={{ fontSize: '0.8125rem' }}>
-                                                {r.requester?.full_name || '-'}<br />
-                                                <span style={{ color: 'var(--color-text-tertiary)', fontSize: '0.75rem' }}>{r.requester?.department}</span>
+                                            <td data-label="Pengaju">
+                                                <div style={{ fontWeight: 500 }}>{r.requester?.full_name || '-'}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{r.requester?.department}</div>
                                             </td>
                                         )}
-                                        <td style={{ whiteSpace: 'nowrap' }}>{r.deadline ? formatDateShort(r.deadline) : '-'}</td>
-                                        <td>
+                                        <td data-label="Deadline" style={{ fontSize: '0.8125rem' }}>{r.deadline ? formatDateShort(r.deadline) : <span style={{ color: 'var(--text-tertiary)' }}>-</span>}</td>
+                                        <td data-label="Status">
                                             <span style={{
-                                                display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: 6,
+                                                display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0.75rem', borderRadius: '0.5rem',
                                                 fontSize: '0.75rem', fontWeight: 600, background: st.bg, color: st.text,
-                                            }}>{st.label}</span>
+                                            }}>
+                                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: st.text }}></div>
+                                                {st.label}
+                                            </span>
                                         </td>
-                                        <td>
+                                        <td style={{ textAlign: 'right', paddingRight: '1rem' }}>
                                             {canManage ? (
-                                                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
                                                     {r.status === 'pending' && (
                                                         <>
-                                                            <button className="btn btn-primary btn-sm" onClick={() => setShowJobdeskModal(r)} title="Terima & Jadikan Jobdesk">
+                                                            <button className="btn btn-primary btn-sm" style={{ borderRadius: '0.5rem' }} onClick={() => setShowJobdeskModal(r)} title="Terima & Jadikan Jobdesk">
                                                                 <Briefcase size={14} /> Terima & Jobdesk
                                                             </button>
-                                                            <button className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => updateRequestStatus(r.id, 'rejected')} title="Tolak">
+                                                            <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444', borderRadius: '0.5rem' }} onClick={() => updateRequestStatus(r.id, 'rejected')} title="Tolak">
                                                                 <XCircle size={14} />
                                                             </button>
                                                         </>
                                                     )}
                                                     {r.status === 'in_progress' && (
-                                                        <button className="btn btn-secondary btn-sm" onClick={() => updateRequestStatus(r.id, 'completed')}>Selesai</button>
+                                                        <button className="btn btn-secondary btn-sm" style={{ borderRadius: '0.5rem' }} onClick={() => updateRequestStatus(r.id, 'completed')}>Selesai</button>
                                                     )}
                                                     {['completed', 'rejected'].includes(r.status) && (
-                                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>Selesai</span>
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 500 }}>Tuntas</span>
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
-                                                    {r.notes || '-'}
+                                                <div style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8125rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                                                    {r.notes || 'Belum ada catatan'}
                                                 </div>
                                             )}
                                         </td>
