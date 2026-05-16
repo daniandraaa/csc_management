@@ -126,19 +126,20 @@ export default function ContentPage() {
                 <p className="page-subtitle">Kelola jadwal konten media sosial dan permintaan konten</p>
 
                 {/* Tabs */}
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                    <button className={`btn ${activeTab === 'plans' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('plans')}>
-                        <PenTool size={16} /> Content Plan
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', borderBottom: '1px solid var(--color-border-primary)', paddingBottom: '1rem' }}>
+                    <button className={`btn ${activeTab === 'plans' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setActiveTab('plans')} style={{ borderRadius: 8, padding: '0.625rem 1.25rem' }}>
+                        <PenTool size={16} /> <span style={{ marginLeft: 8 }}>Content Plan</span>
                     </button>
-                    <button className={`btn ${activeTab === 'requests' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('requests')} style={{ position: 'relative' }}>
-                        <Inbox size={16} /> Permintaan Konten
+                    <button className={`btn ${activeTab === 'requests' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setActiveTab('requests')} style={{ position: 'relative', borderRadius: 8, padding: '0.625rem 1.25rem' }}>
+                        <Inbox size={16} /> <span style={{ marginLeft: 8 }}>Permintaan Konten</span>
                         {pendingRequests > 0 && (
                             <span style={{
-                                position: 'absolute', top: -6, right: -6,
-                                background: '#ef4444', color: 'white',
-                                borderRadius: '50%', width: 20, height: 20,
+                                position: 'absolute', top: -4, right: -4,
+                                background: 'var(--color-danger)', color: 'white',
+                                borderRadius: '50%', minWidth: 18, height: 18,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '0.6875rem', fontWeight: 700,
+                                fontSize: '0.625rem', fontWeight: 700, padding: '0 4px',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                             }}>{pendingRequests}</span>
                         )}
                     </button>
@@ -156,26 +157,47 @@ export default function ContentPage() {
                             </div>
                         </div>
 
-                        {loading ? <p>Memuat...</p> : Object.keys(grouped).length === 0 ? <div className="card"><div className="empty-state"><PenTool size={48} /><h3>Belum ada konten</h3></div></div> :
+                        {loading ? <div style={{ textAlign: 'center', padding: '4rem' }}><div className="loading-spinner" /> <p style={{ marginTop: 12, color: 'var(--color-text-tertiary)' }}>Memuat data...</p></div> : Object.keys(grouped).length === 0 ? <div className="card"><div className="empty-state" style={{ padding: '4rem 2rem' }}><div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--color-surface-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><PenTool size={32} style={{ color: 'var(--color-text-tertiary)' }} /></div><h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Belum ada konten</h3><p style={{ color: 'var(--color-text-tertiary)', maxWidth: 300, margin: '8px auto' }}>Mulai buat perencanaan konten Anda atau impor dari file CSV.</p></div></div> :
                             Object.entries(grouped).map(([date, items]) => (
-                                <div key={date} style={{ marginBottom: '1.5rem' }}>
-                                    <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>📅 {date === 'Tidak Terjadwal' ? date : formatDateShort(date)}</h3>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem' }}>
+                                <div key={date} style={{ marginBottom: '2.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1rem' }}>
+                                        <div style={{ padding: '4px 12px', background: 'var(--color-brand-50)', color: 'var(--color-brand-600)', borderRadius: 6, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                            {date === 'Tidak Terjadwal' ? 'Draft' : 'Jadwal'}
+                                        </div>
+                                        <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                                            {date === 'Tidak Terjadwal' ? date : formatDateShort(date)}
+                                        </h3>
+                                        <div style={{ flex: 1, height: 1, background: 'var(--color-border-primary)' }} />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
                                         {(items as any[]).map((p: any) => (
-                                            <div key={p.id} className="card" style={{ padding: '1rem' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                                    <div style={{ display: 'flex', gap: 4 }}>
-                                                        <span className="badge" style={{ background: platformColors[p.platform] || 'var(--color-surface-tertiary)', color: platformColors[p.platform] ? '#fff' : 'var(--color-text-secondary)' }}>{p.platform}</span>
-                                                        <span className="badge badge-default">{p.content_type}</span>
+                                            <div key={p.id} className="card hover-card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', border: '1px solid var(--color-border-primary)', transition: 'all 0.2s ease' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                                                    <div style={{ display: 'flex', gap: 6 }}>
+                                                        <span style={{ 
+                                                            padding: '2px 8px', borderRadius: 4, fontSize: '0.6875rem', fontWeight: 600, 
+                                                            background: platformColors[p.platform] ? `${platformColors[p.platform]}15` : 'var(--color-surface-secondary)', 
+                                                            color: platformColors[p.platform] || 'var(--color-text-secondary)',
+                                                            border: `1px solid ${platformColors[p.platform] ? `${platformColors[p.platform]}30` : 'var(--color-border-primary)'}`
+                                                        }}>{p.platform}</span>
+                                                        <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: '0.6875rem', fontWeight: 600, background: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)', textTransform: 'capitalize' }}>{p.content_type}</span>
                                                     </div>
-                                                    <span className={`badge badge-${getStatusColor(p.status)}`}>{getStatusLabel(p.status)}</span>
+                                                    <span className={`badge badge-${getStatusColor(p.status)}`} style={{ fontSize: '0.625rem', padding: '2px 8px' }}>{getStatusLabel(p.status)}</span>
                                                 </div>
-                                                <h4 style={{ fontWeight: 600, marginBottom: 4 }}>{p.title}</h4>
-                                                {p.description && <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 6 }}>{p.description}</p>}
-                                                {p.assignee && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>PIC: {p.assignee.full_name}</span>}
-                                                <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-                                                    <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ title: p.title, platform: p.platform, content_type: p.content_type, description: p.description || '', scheduled_date: p.scheduled_date || '', status: p.status, assigned_to: p.assigned_to || '', content_url: p.content_url || '', notes: p.notes || '' }); setEditId(p.id); setPicSearch(p.assignee?.full_name || ''); setShowModal(true) }}>Edit</button>
-                                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(p.id)}>Hapus</button>
+                                                <h4 style={{ fontWeight: 600, fontSize: '1rem', marginBottom: 8, color: 'var(--color-text-primary)', lineHeight: 1.4 }}>{p.title}</h4>
+                                                {p.description && <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>{p.description}</p>}
+                                                
+                                                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid var(--color-border-primary)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--color-brand-50)', color: 'var(--color-brand-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.625rem', fontWeight: 700 }}>
+                                                            {p.assignee?.full_name ? p.assignee.full_name.charAt(0) : '?'}
+                                                        </div>
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>{p.assignee?.full_name || 'Unassigned'}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 4 }}>
+                                                        <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={() => { setForm({ title: p.title, platform: p.platform, content_type: p.content_type, description: p.description || '', scheduled_date: p.scheduled_date || '', status: p.status, assigned_to: p.assigned_to || '', content_url: p.content_url || '', notes: p.notes || '' }); setEditId(p.id); setPicSearch(p.assignee?.full_name || ''); setShowModal(true) }}>Edit</button>
+                                                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)', padding: '4px 8px' }} onClick={() => handleDelete(p.id)}>Hapus</button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -186,66 +208,81 @@ export default function ContentPage() {
                     </>
                 ) : (
                     /* Content Requests Tab */
-                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--color-border-primary)' }}>
                         <table className="data-table">
-                            <thead><tr><th>Judul</th><th>Pengaju</th><th>Platform</th><th>Tipe</th><th>Deadline</th><th>Status</th><th>Aksi</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th style={{ paddingLeft: '1.25rem' }}>Konten</th>
+                                    <th>Pengaju</th>
+                                    <th>Platform</th>
+                                    <th>Tipe</th>
+                                    <th>Deadline</th>
+                                    <th>Status</th>
+                                    <th style={{ paddingRight: '1.25rem' }}>Aksi</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {loading ? (
-                                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>Memuat...</td></tr>
+                                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: '4rem' }}><div className="loading-spinner" /><p style={{ marginTop: 12, color: 'var(--color-text-tertiary)' }}>Memuat permintaan...</p></td></tr>
                                 ) : requests.length === 0 ? (
-                                    <tr><td colSpan={7}><div className="empty-state"><Inbox size={48} /><h3>Belum ada permintaan</h3><p>Belum ada permintaan konten dari anggota.</p></div></td></tr>
+                                    <tr><td colSpan={7}><div className="empty-state" style={{ padding: '4rem 2rem' }}><div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--color-surface-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Inbox size={32} style={{ color: 'var(--color-text-tertiary)' }} /></div><h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Belum ada permintaan</h3><p style={{ color: 'var(--color-text-tertiary)', maxWidth: 300, margin: '8px auto' }}>Permintaan konten dari departemen lain akan muncul di sini.</p></div></td></tr>
                                 ) : requests.map((r: any) => {
                                     const st = reqStatusStyles[r.status] || reqStatusStyles.pending
                                     return (
                                         <tr key={r.id}>
-                                            <td>
-                                                <div style={{ fontWeight: 500 }}>{r.title}</div>
-                                                {r.description && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</div>}
+                                            <td style={{ paddingLeft: '1.25rem' }}>
+                                                <div style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{r.title}</div>
+                                                {r.description && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{r.description}</div>}
                                             </td>
-                                            <td style={{ fontSize: '0.8125rem' }}>{r.requester?.full_name || '-'}<br /><span style={{ color: 'var(--color-text-tertiary)', fontSize: '0.75rem' }}>{r.requester?.department}</span></td>
-                                            <td>{r.platform || '-'}</td>
-                                            <td><span className="badge badge-info">{r.content_type}</span></td>
-                                            <td style={{ whiteSpace: 'nowrap' }}>{r.deadline ? formatDateShort(r.deadline) : '-'}</td>
+                                            <td>
+                                                <div style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{r.requester?.full_name || 'Unknown'}</div>
+                                                <div style={{ color: 'var(--color-text-tertiary)', fontSize: '0.75rem' }}>{r.requester?.department}</div>
+                                            </td>
+                                            <td>
+                                                <span style={{ fontSize: '0.8125rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>{r.platform || 'General'}</span>
+                                            </td>
+                                            <td><span className="badge badge-default" style={{ fontSize: '0.6875rem' }}>{r.content_type}</span></td>
+                                            <td style={{ whiteSpace: 'nowrap', fontSize: '0.8125rem' }}>{r.deadline ? formatDateShort(r.deadline) : 'No Deadline'}</td>
                                             <td>
                                                 <span style={{
-                                                    display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: 6,
-                                                    fontSize: '0.75rem', fontWeight: 600, background: st.bg, color: st.text,
+                                                    display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 12,
+                                                    fontSize: '0.6875rem', fontWeight: 600, background: st.bg, color: st.text,
                                                 }}>{st.label}</span>
                                             </td>
-                                            <td>
+                                            <td style={{ paddingRight: '1.25rem' }}>
                                                 {canManage ? (
-                                                    <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                         {r.status === 'pending' && (
                                                             <>
-                                                                <button className="btn btn-primary btn-sm" onClick={() => convertToContentPlan(r)} title="Terima & buat content plan">
-                                                                    <CheckCircle2 size={14} /> Terima
+                                                                <button className="btn btn-primary btn-sm" style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }} onClick={() => convertToContentPlan(r)}>
+                                                                    <CheckCircle2 size={12} /> Terima
                                                                 </button>
-                                                                <button className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => updateRequestStatus(r.id, 'rejected')} title="Tolak">
-                                                                    <XCircle size={14} />
+                                                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)', padding: '4px 8px', height: 28 }} onClick={() => updateRequestStatus(r.id, 'rejected')}>
+                                                                    <XCircle size={12} />
                                                                 </button>
                                                             </>
                                                         )}
                                                         {r.status === 'in_progress' && (
-                                                            <button className="btn btn-secondary btn-sm" onClick={() => updateRequestStatus(r.id, 'completed', 'Konten selesai')}>
+                                                            <button className="btn btn-secondary btn-sm" style={{ height: 28, fontSize: '0.75rem' }} onClick={() => updateRequestStatus(r.id, 'completed', 'Konten selesai')}>
                                                                 Selesai
                                                             </button>
                                                         )}
                                                         {['completed', 'rejected'].includes(r.status) && (
                                                             <select 
                                                                 className="form-select" 
-                                                                style={{ width: 'auto', fontSize: '0.75rem', height: '2rem', padding: '0 0.5rem' }}
+                                                                style={{ width: 'auto', fontSize: '0.75rem', height: 28, padding: '0 8px' }}
                                                                 value={r.status}
                                                                 onChange={(e) => updateRequestStatus(r.id, e.target.value)}
                                                             >
-                                                                <option value="pending">Set Pending</option>
-                                                                <option value="in_progress">Set In Progress</option>
+                                                                <option value="pending">Pending</option>
+                                                                <option value="in_progress">In Progress</option>
                                                                 <option value="completed">Completed</option>
                                                                 <option value="rejected">Rejected</option>
                                                             </select>
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>No Access</span>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>View Only</span>
                                                 )}
                                             </td>
                                         </tr>
@@ -261,9 +298,13 @@ export default function ContentPage() {
 
                 {showModal && (
                     <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                        <div className="modal-content" onClick={e => e.stopPropagation()}>
-                            <div className="modal-header"><h2>{editId ? 'Edit' : 'Tambah'} Konten</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)}><X size={18} /></button></div>
-                            <form onSubmit={handleSubmit}><div className="modal-body">
+                        <div className="modal-content" style={{ maxWidth: 600, borderRadius: 16 }} onClick={e => e.stopPropagation()}>
+                            <div className="modal-header" style={{ borderBottom: '1px solid var(--color-border-primary)', padding: '1.25rem 1.5rem' }}>
+                                <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>{editId ? 'Edit Content Plan' : 'Tambah Konten Baru'}</h2>
+                                <button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)}><X size={20} /></button>
+                            </div>
+                            <form onSubmit={handleSubmit}>
+<div className="modal-body">
                                 <div className="form-group"><label className="form-label">Judul *</label><input className="form-input" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div className="form-group"><label className="form-label">Platform *</label><input className="form-input" required placeholder="Instagram, TikTok..." value={form.platform} onChange={e => setForm({ ...form, platform: e.target.value })} /></div>
