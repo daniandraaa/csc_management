@@ -43,9 +43,8 @@ export default function MyFinancePage() {
 
     async function handlePay(e: React.FormEvent) {
         e.preventDefault()
-        if (!payForm.month || !payForm.receipt_url) return alert('Bulan dan Link Bukti wajib diisi')
-        
         setSubmitting(true)
+
         const payload = {
             member_id: currentUser?.id,
             month: `${payForm.month}-01`,
@@ -56,16 +55,31 @@ export default function MyFinancePage() {
             notes: payForm.notes
         }
 
-        const { error } = await supabase.from('member_kas').insert(payload)
+        let error
+        if (editId) {
+            const { error: err } = await supabase.from('member_kas').update(payload).eq('id', editId)
+            error = err
+        } else {
+            const { error: err } = await supabase.from('member_kas').insert(payload)
+            error = err
+        }
         
         if (error) {
-            alert('Gagal mengirim konfirmasi: ' + error.message)
+            alert('Gagal memproses: ' + error.message)
         } else {
             setShowPayModal(false)
+            setEditId(null)
             setPayForm({ ...payForm, month: '', receipt_url: '', notes: '' })
             loadData()
         }
         setSubmitting(false)
+    }
+
+    async function handleDelete(id: string) {
+        if (!confirm('Hapus konfirmasi pembayaran ini?')) return
+        const { error } = await supabase.from('member_kas').delete().eq('id', id)
+        if (error) alert('Gagal menghapus: ' + error.message)
+        else loadData()
     }
 
     const currentYear = new Date().getFullYear()
@@ -97,7 +111,7 @@ export default function MyFinancePage() {
             <div className="page-container">
                 <h1 className="page-title">Keuangan Saya</h1>
                 <div className="toolbar" style={{ marginBottom: '2rem', justifyContent: 'flex-end' }}>
-                    <button className="btn btn-primary" onClick={() => setShowPayModal(true)}>
+                    <button className="btn btn-primary" onClick={() => { setEditId(null); setPayForm({ month: '', amount: (currentUser?.kas_monthly_amount || 25000).toString(), receipt_url: '', notes: '' }); setShowPayModal(true); }}>
                         <Plus size={16} /> Konfirmasi Pembayaran
                     </button>
                 </div>
@@ -147,7 +161,7 @@ export default function MyFinancePage() {
                                                 </span>
                                             </div>
                                             {m.status !== 'paid' && !isFuture && (
-                                                <button className="btn btn-ghost btn-sm btn-icon" onClick={() => { setPayForm({ ...payForm, month: m.monthVal }); setShowPayModal(true) }} title="Bayar Sekarang"><Plus size={14} /></button>
+                                                <button className="btn btn-ghost btn-sm btn-icon" onClick={() => { setEditId(null); setPayForm({ month: m.monthVal, amount: (currentUser?.kas_monthly_amount || 25000).toString(), receipt_url: '', notes: '' }); setShowPayModal(true) }} title="Bayar Sekarang"><Plus size={14} /></button>
                                             )}
                                         </div>
                                     </div>
@@ -156,15 +170,34 @@ export default function MyFinancePage() {
                                         <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
                                             <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.025em' }}>Riwayat Pembayaran</div>
                                             {m.payments.map((p: any) => (
-                                                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', padding: '0.25rem 0' }}>
+                                                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', padding: '0.5rem 0', alignItems: 'center', borderBottom: '1px solid var(--border-color)' }}>
                                                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                                        <Clock size={12} style={{ color: 'var(--text-secondary)' }} />
-                                                        <span>{formatDateShort(p.payment_date)}</span>
-                                                        <span className={`badge badge-${p.status === 'paid' ? 'success' : p.status === 'pending' ? 'info' : 'warning'}`} style={{ fontSize: '0.625rem', padding: '0 0.4rem' }}>
-                                                            {p.status.toUpperCase()}
+                                                        <span style={{ color: 'var(--text-secondary)' }}>{formatDateShort(p.payment_date)}</span>
+                                                        <span style={{ fontWeight: 500 }}>{formatCurrency(p.amount_paid)}</span>
+                                                        <span style={{ 
+                                                            color: p.status === 'paid' ? 'var(--color-success)' : p.status === 'rejected' ? 'var(--color-danger)' : 'var(--color-info)',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 600,
+                                                            marginLeft: '0.25rem'
+                                                        }}>
+                                                            {p.status === 'paid' ? '• Lunas' : p.status === 'rejected' ? '• Ditolak' : '• Pending'}
                                                         </span>
                                                     </div>
-                                                    <div style={{ fontWeight: 600 }}>{formatCurrency(p.amount_paid)}</div>
+                                                    {(p.status === 'pending' || p.status === 'rejected') && (
+                                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                            <button className="btn btn-ghost btn-sm" style={{ padding: '0.25rem 0.5rem', height: 'auto', fontSize: '0.75rem' }} onClick={() => {
+                                                                setEditId(p.id)
+                                                                setPayForm({
+                                                                    month: p.month.substring(0, 7),
+                                                                    amount: p.amount_paid.toString(),
+                                                                    receipt_url: p.receipt_url || '',
+                                                                    notes: p.notes || ''
+                                                                })
+                                                                setShowPayModal(true)
+                                                            }}>Edit</button>
+                                                            <button className="btn btn-ghost btn-sm" style={{ padding: '0.25rem 0.5rem', height: 'auto', fontSize: '0.75rem', color: 'var(--color-danger)' }} onClick={() => handleDelete(p.id)}>Hapus</button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -226,9 +259,9 @@ export default function MyFinancePage() {
                 </div>
 
                 {showPayModal && (
-                    <div className="modal-overlay" onClick={() => setShowPayModal(false)}>
+                    <div className="modal-overlay" onClick={() => { setShowPayModal(false); setEditId(null); }}>
                         <div className="modal-content" onClick={e => e.stopPropagation()}>
-                            <div className="modal-header"><h2>Konfirmasi Pembayaran Kas</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowPayModal(false)}><X size={18} /></button></div>
+                            <div className="modal-header"><h2>{editId ? 'Edit' : 'Konfirmasi'} Pembayaran Kas</h2><button className="btn btn-ghost btn-icon" onClick={() => { setShowPayModal(false); setEditId(null); }}><X size={18} /></button></div>
                             <form onSubmit={handlePay}><div className="modal-body">
                                 <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
                                     Silakan isi detail pembayaran Anda. Tim Finance akan melakukan verifikasi sebelum status berubah menjadi lunas.
@@ -249,7 +282,7 @@ export default function MyFinancePage() {
                                     <label className="form-label">Catatan</label>
                                     <textarea className="form-textarea" placeholder="Contoh: Bayar via Bank Mandiri" value={payForm.notes} onChange={e => setPayForm({ ...payForm, notes: e.target.value })} />
                                 </div>
-                            </div><div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowPayModal(false)}>Batal</button><button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Mengirim...' : 'Kirim Konfirmasi'}</button></div></form>
+                            </div><div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => { setShowPayModal(false); setEditId(null); }}>Batal</button><button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? (editId ? 'Menyimpan...' : 'Mengirim...') : (editId ? 'Simpan Perubahan' : 'Kirim Konfirmasi')}</button></div></form>
                         </div>
                     </div>
                 )}

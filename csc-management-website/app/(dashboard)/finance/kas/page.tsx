@@ -348,7 +348,7 @@ export default function KasManagementPage() {
                                                                     }); 
                                                                     setEditId(i.id); 
                                                                     setShowModal(true) 
-                                                                }}>Edit</button>
+                                                                }}>Review</button>
                                                             </div>
                                                         ) : (
                                                             <button className="btn btn-ghost btn-sm" onClick={() => { 
@@ -364,7 +364,7 @@ export default function KasManagementPage() {
                                                                 }); 
                                                                 setEditId(i.id); 
                                                                 setShowModal(true) 
-                                                            }}>Edit</button>
+                                                            }}>Review</button>
                                                         )}
                                                     </td>
                                                 </tr>
