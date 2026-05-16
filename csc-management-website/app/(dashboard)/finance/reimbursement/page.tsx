@@ -57,8 +57,8 @@ export default function ReimbursementPage() {
             resultId = data?.id
         }
 
-        // Handle transaction creation if paid
-        if (form.status === 'paid' && resultId) {
+        // Handle transaction creation if approved or paid
+        if ((form.status === 'approved' || form.status === 'paid') && resultId) {
             // Check if transaction already exists for this reimbursement
             const { data: existingTx } = await supabase.from('financial_transactions').select('id').eq('reimbursement_id', resultId).single()
             
@@ -66,11 +66,12 @@ export default function ReimbursementPage() {
                 program_id: form.program_id || null,
                 type: 'expense',
                 category: 'Reimbursement',
-                description: `Reimbursement: ${form.title}`,
+                description: `Reimbursement: ${form.title} (${members.find(m => m.id === (form.member_id || items.find(i => i.id === editId)?.member_id))?.full_name})`,
                 amount: finalAmount,
                 transaction_date: new Date().toISOString().split('T')[0],
                 recorded_by: currentUser?.id,
-                reimbursement_id: resultId
+                reimbursement_id: resultId,
+                member_id: form.member_id || items.find(i => i.id === editId)?.member_id
             }
 
             if (existingTx) {
@@ -78,6 +79,9 @@ export default function ReimbursementPage() {
             } else {
                 await supabase.from('financial_transactions').insert(txPayload)
             }
+        } else if (resultId) {
+            // If status is not approved/paid, but transaction exists, remove it
+            await supabase.from('financial_transactions').delete().eq('reimbursement_id', resultId)
         }
 
         setShowModal(false); setEditId(null); setForm({ member_id: '', program_id: '', title: '', description: '', amount: '', receipt_url: '', status: 'pending', notes: '', reimbursed_amount: '' } as any); loadData()
