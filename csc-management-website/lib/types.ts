@@ -230,7 +230,7 @@ export interface MemberKas {
     member?: Member
     month: string
     amount_paid: number
-    status: 'unpaid' | 'pending' | 'partial' | 'paid'
+    status: 'unpaid' | 'pending' | 'partial' | 'paid' | 'rejected'
     payment_date: string | null
     transaction_id: string | null
     receipt_url?: string | null

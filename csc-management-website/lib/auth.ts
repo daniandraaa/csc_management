@@ -12,6 +12,7 @@ export interface CurrentUser {
     position: string | null
     photo_url: string | null
     whatsapp: string | null
+    kas_monthly_amount: number | null
 }
 
 interface AuthContextType {
@@ -38,7 +39,7 @@ export { AuthContext }
 export async function loginUser(memberId: string): Promise<CurrentUser | null> {
     const { data } = await supabase
         .from('members')
-        .select('id, full_name, email, role, department, position, photo_url, whatsapp')
+        .select('id, full_name, email, role, department, position, photo_url, whatsapp, kas_monthly_amount')
         .eq('id', memberId)
         .single()
 
@@ -52,6 +53,7 @@ export async function loginUser(memberId: string): Promise<CurrentUser | null> {
             position: data.position,
             photo_url: data.photo_url,
             whatsapp: data.whatsapp,
+            kas_monthly_amount: data.kas_monthly_amount,
         }
         localStorage.setItem('csc_current_user', JSON.stringify(user))
         return user

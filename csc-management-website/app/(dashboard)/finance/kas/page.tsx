@@ -7,6 +7,7 @@ import { DollarSign, Plus, X, Search, Filter, Download } from 'lucide-react'
 import { exportToCsv } from '@/lib/export'
 
 const MONTHS = [
+    { label: 'Semua Bulan', value: 'all' },
     { label: 'Januari', value: '01' },
     { label: 'Februari', value: '02' },
     { label: 'Maret', value: '03' },
@@ -21,21 +22,22 @@ const MONTHS = [
     { label: 'Desember', value: '12' },
 ]
 
-const YEARS = ['2024', '2025', '2026']
+const YEARS = ['all', '2024', '2025', '2026']
 
 export default function KasManagementPage() {
     const [items, setItems] = useState<any[]>([])
     const [members, setMembers] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
-    const [filterMonth, setFilterMonth] = useState(new Date().toISOString().split('-')[1])
-    const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString())
+    const [filterMonth, setFilterMonth] = useState('all')
+    const [filterYear, setFilterYear] = useState('all')
     const [searchTerm, setSearchTerm] = useState('')
+    const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all')
     
     const [form, setForm] = useState({ 
         member_id: '', 
         month: `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}-01`, 
-        amount_paid: '20000', 
+        amount_paid: '25000', 
         status: 'paid', 
         payment_date: new Date().toISOString().split('T')[0], 
         receipt_url: '',
@@ -48,10 +50,23 @@ export default function KasManagementPage() {
 
     async function loadData() {
         setLoading(true)
-        const startDate = `${filterYear}-${filterMonth}-01`
-        const { data } = await supabase.from('member_kas')
-            .select('*, member:members(full_name, nim)')
-            .eq('month', startDate)
+        
+        let query = supabase.from('member_kas').select('*, member:members(full_name, nim)')
+        
+        if (filterYear !== 'all' && filterMonth !== 'all') {
+            const startDate = `${filterYear}-${filterMonth}-01`
+            query = query.or(`month.eq.${startDate},status.eq.pending`)
+        } else if (filterYear !== 'all') {
+            // All months in a year
+            query = query.gte('month', `${filterYear}-01-01`).lte('month', `${filterYear}-12-31`)
+        } else if (filterMonth !== 'all') {
+            // A specific month across all years
+            // This is complex in Supabase, better to fetch all and filter in JS if needed,
+            // or just fetch all for now since data isn't huge.
+        }
+
+        const { data, error } = await query
+        if (error) console.error("Error loading kas:", error)
         
         const { data: m } = await supabase.from('members').select('id, full_name, nim, kas_monthly_amount').order('full_name')
         
@@ -107,8 +122,38 @@ export default function KasManagementPage() {
         } else { 
             await supabase.from('member_kas').insert(kasPayload) 
         }
-        
+
         setShowModal(false); setEditId(null); loadData()
+    }
+
+    async function handleApprove(item: any) {
+        const member = members.find(m => m.id === item.member_id)
+        
+        // Create transaction
+        const txPayload = {
+            type: 'income',
+            category: 'Kas Anggota',
+            description: `Kas Anggota: ${member?.full_name} - ${item.month.substring(0, 7)}`,
+            amount: item.amount_paid,
+            transaction_date: new Date().toISOString().split('T')[0],
+            member_id: item.member_id
+        }
+        
+        const { data: txData } = await supabase.from('financial_transactions').insert(txPayload).select().single()
+        
+        // Update Kas status
+        await supabase.from('member_kas').update({ 
+            status: 'paid', 
+            transaction_id: txData?.id 
+        }).eq('id', item.id)
+        
+        loadData()
+    }
+
+    async function handleReject(id: string) {
+        if (!confirm('Yakin ingin menolak pembayaran ini?')) return
+        await supabase.from('member_kas').update({ status: 'rejected' }).eq('id', id)
+        loadData()
     }
 
     const filtered = items.filter(i => 
@@ -116,9 +161,13 @@ export default function KasManagementPage() {
         i.member?.nim?.includes(searchTerm)
     )
 
-    // Members who haven't paid this month
-    const paidMemberIds = items.map(i => i.member_id)
-    const unpaidMembers = members.filter(m => !paidMemberIds.includes(m.id))
+    // Members who haven't fully paid this month
+    const memberPaidTotals = items.reduce((acc, i) => {
+        if (i.status === 'paid') acc[i.member_id] = (acc[i.member_id] || 0) + i.amount_paid
+        return acc
+    }, {} as Record<string, number>)
+
+    const unpaidMembers = members.filter(m => (memberPaidTotals[m.id] || 0) < (m.kas_monthly_amount || 25000))
 
     return (
         <div>
@@ -127,22 +176,88 @@ export default function KasManagementPage() {
                 <h1 className="page-title">Manajemen Kas Anggota</h1>
                 <p className="page-subtitle">Input dan pantau iuran bulanan anggota</p>
 
-                <div className="toolbar" style={{ gap: '1rem', flexWrap: 'wrap' }}>
-                    <div className="toolbar-left" style={{ gap: '0.5rem' }}>
-                        <div className="search-input-container" style={{ width: '250px' }}>
-                            <Search size={16} className="search-icon" />
-                            <input className="search-input" placeholder="Cari nama/NIM..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                <div style={{ 
+                    display: 'inline-flex', 
+                    background: 'var(--bg-secondary)', 
+                    padding: '0.25rem', 
+                    borderRadius: '0.75rem', 
+                    marginBottom: '2rem',
+                    border: '1px solid var(--border-color)'
+                }}>
+                    <button 
+                        className={`btn ${activeTab === 'all' ? 'btn-primary' : 'btn-ghost'}`} 
+                        style={{ 
+                            borderRadius: '0.5rem', 
+                            padding: '0.5rem 1.25rem',
+                            fontSize: '0.875rem',
+                            boxShadow: activeTab === 'all' ? '0 4px 12px rgba(var(--color-primary-rgb), 0.2)' : 'none'
+                        }} 
+                        onClick={() => setActiveTab('all')}
+                    >
+                        Semua Data
+                    </button>
+                    <button 
+                        className={`btn ${activeTab === 'pending' ? 'btn-primary' : 'btn-ghost'}`} 
+                        style={{ 
+                            borderRadius: '0.5rem', 
+                            padding: '0.5rem 1.25rem',
+                            fontSize: '0.875rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            boxShadow: activeTab === 'pending' ? '0 4px 12px rgba(var(--color-primary-rgb), 0.2)' : 'none'
+                        }} 
+                        onClick={() => setActiveTab('pending')}
+                    >
+                        Menunggu Persetujuan
+                        {items.filter(i => i.status === 'pending').length > 0 && (
+                            <span style={{ 
+                                background: activeTab === 'pending' ? 'rgba(255,255,255,0.2)' : 'var(--color-primary)', 
+                                color: activeTab === 'pending' ? 'white' : 'white',
+                                padding: '0.1rem 0.5rem',
+                                borderRadius: '1rem',
+                                fontSize: '0.75rem',
+                                fontWeight: 700
+                            }}>
+                                {items.filter(i => i.status === 'pending').length}
+                            </span>
+                        )}
+                    </button>
+                </div>
+
+                <div className="toolbar" style={{ 
+                    gap: '1rem', 
+                    flexWrap: 'wrap', 
+                    background: 'var(--bg-secondary)', 
+                    padding: '1rem', 
+                    borderRadius: '1rem', 
+                    marginBottom: '2rem',
+                    border: '1px solid var(--border-color)',
+                    alignItems: 'center'
+                }}>
+                    <div className="toolbar-left" style={{ gap: '0.75rem', flex: 1 }}>
+                        <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                            <input 
+                                className="form-input" 
+                                style={{ paddingLeft: '3rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }} 
+                                placeholder="Cari nama anggota atau NIM..." 
+                                value={searchTerm} 
+                                onChange={e => setSearchTerm(e.target.value)} 
+                            />
                         </div>
-                        <select className="form-select" style={{ width: 'auto' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
-                            {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                        </select>
-                        <select className="form-select" style={{ width: 'auto' }} value={filterYear} onChange={e => setFilterYear(e.target.value)}>
-                            {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                        </select>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <select className="form-select" style={{ borderRadius: '0.75rem', width: 'auto' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
+                                {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                            </select>
+                            <select className="form-select" style={{ borderRadius: '0.75rem', width: 'auto' }} value={filterYear} onChange={e => setFilterYear(e.target.value)}>
+                                {YEARS.map(y => <option key={y} value={y}>{y === 'all' ? 'Semua Tahun' : y}</option>)}
+                            </select>
+                        </div>
                     </div>
-                    <div className="toolbar-right">
-                        <button className="btn btn-secondary btn-sm" onClick={() => exportToCsv([], filtered, `Kas_${filterYear}_${filterMonth}.csv`)}><Download size={14} /> Export</button>
-                        <button className="btn btn-primary" onClick={() => { 
+                    <div className="toolbar-right" style={{ gap: '0.75rem' }}>
+                        <button className="btn btn-secondary" style={{ borderRadius: '0.75rem' }} onClick={() => exportToCsv([], filtered, `Kas_Export.csv`)}><Download size={16} /> Export CSV</button>
+                        <button className="btn btn-primary" style={{ borderRadius: '0.75rem' }} onClick={() => { 
                             setEditId(null); 
                             setForm({ 
                                 ...form, 
@@ -158,47 +273,77 @@ export default function KasManagementPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2">
-                        <div className="card" style={{ padding: 0 }}>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div className="lg:col-span-8">
+                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                             <div className="data-table-container">
                                 <table className="data-table">
-                                    <thead><tr><th>Anggota</th><th>Tanggal Bayar</th><th>Jumlah</th><th>Status</th><th>Aksi</th></tr></thead>
+                                    <thead><tr><th>Anggota</th><th>Bulan</th><th>Tanggal Bayar</th><th>Jumlah</th><th>Status</th><th>Aksi</th></tr></thead>
                                     <tbody>
-                                        {loading ? <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem' }}>Memuat...</td></tr> :
-                                            filtered.length === 0 ? <tr><td colSpan={5} className="text-center" style={{ padding: '2rem' }}>Belum ada data pembayaran bulan ini</td></tr> :
-                                            filtered.map(i => (
+                                        {loading ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem' }}>Memuat...</td></tr> :
+                                            filtered.length === 0 ? <tr><td colSpan={6} className="text-center" style={{ padding: '3rem' }}>Tidak ada data yang ditemukan</td></tr> :
+                                            filtered
+                                            .filter(i => {
+                                                if (activeTab === 'pending') return i.status === 'pending';
+                                                if (filterYear === 'all' || filterMonth === 'all') return true;
+                                                return i.month === `${filterYear}-${filterMonth}-01` || i.status === 'pending';
+                                            })
+                                            .map(i => (
                                                 <tr key={i.id}>
                                                     <td>
                                                         <div style={{ fontWeight: 600 }}>{i.member?.full_name}</div>
                                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{i.member?.nim}</div>
                                                     </td>
+                                                    <td style={{ fontSize: '0.8125rem' }}>{new Date(i.month).toLocaleString('id-ID', { month: 'long', year: 'numeric' })}</td>
                                                     <td>{i.payment_date ? formatDateShort(i.payment_date) : '-'}</td>
                                                     <td style={{ fontWeight: 600 }}>{formatCurrency(i.amount_paid)}</td>
                                                     <td>
                                                         <span className={`badge badge-${
                                                             i.status === 'paid' ? 'success' : 
-                                                            i.status === 'pending' ? 'info' : 'warning'
+                                                            i.status === 'pending' ? 'info' : 
+                                                            i.status === 'rejected' ? 'danger' : 'warning'
                                                         }`}>
                                                             {i.status === 'paid' ? 'Lunas' : 
-                                                             i.status === 'pending' ? 'Menunggu Verifikasi' : 'Sebagian'}
+                                                             i.status === 'pending' ? 'Menunggu Verifikasi' : 
+                                                             i.status === 'rejected' ? 'Ditolak' : 'Sebagian'}
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        <button className="btn btn-ghost btn-sm" onClick={() => { 
-                                                            setForm({ 
-                                                                member_id: i.member_id, 
-                                                                month: i.month, 
-                                                                amount_paid: i.amount_paid.toString(), 
-                                                                status: i.status, 
-                                                                payment_date: i.payment_date || '', 
-                                                                receipt_url: i.receipt_url || '',
-                                                                transaction_id: i.transaction_id,
-                                                                notes: i.notes || '' 
-                                                            }); 
-                                                            setEditId(i.id); 
-                                                            setShowModal(true) 
-                                                        }}>Edit</button>
+                                                        {i.status === 'pending' ? (
+                                                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                                <button className="btn btn-primary btn-sm" style={{ background: 'var(--color-success)', borderColor: 'var(--color-success)' }} onClick={() => handleApprove(i)}>Approve</button>
+                                                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleReject(i.id)}>Reject</button>
+                                                                <button className="btn btn-ghost btn-sm" onClick={() => { 
+                                                                    setForm({ 
+                                                                        member_id: i.member_id, 
+                                                                        month: i.month, 
+                                                                        amount_paid: i.amount_paid.toString(), 
+                                                                        status: i.status, 
+                                                                        payment_date: i.payment_date || '', 
+                                                                        receipt_url: i.receipt_url || '',
+                                                                        transaction_id: i.transaction_id,
+                                                                        notes: i.notes || '' 
+                                                                    }); 
+                                                                    setEditId(i.id); 
+                                                                    setShowModal(true) 
+                                                                }}>Edit</button>
+                                                            </div>
+                                                        ) : (
+                                                            <button className="btn btn-ghost btn-sm" onClick={() => { 
+                                                                setForm({ 
+                                                                    member_id: i.member_id, 
+                                                                    month: i.month, 
+                                                                    amount_paid: i.amount_paid.toString(), 
+                                                                    status: i.status, 
+                                                                    payment_date: i.payment_date || '', 
+                                                                    receipt_url: i.receipt_url || '',
+                                                                    transaction_id: i.transaction_id,
+                                                                    notes: i.notes || '' 
+                                                                }); 
+                                                                setEditId(i.id); 
+                                                                setShowModal(true) 
+                                                            }}>Edit</button>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))
@@ -222,7 +367,7 @@ export default function KasManagementPage() {
                                             setForm({ 
                                                 ...form, 
                                                 member_id: m.id, 
-                                                amount_paid: m.kas_monthly_amount?.toString() || '20000',
+                                                amount_paid: m.kas_monthly_amount?.toString() || '25000',
                                                 receipt_url: '',
                                                 transaction_id: null,
                                                 status: 'paid'

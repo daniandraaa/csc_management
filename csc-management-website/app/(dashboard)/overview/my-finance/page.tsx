@@ -19,7 +19,7 @@ export default function MyFinancePage() {
     useEffect(() => {
         if (currentUser) {
             loadData()
-            setPayForm(prev => ({ ...prev, amount: (currentUser.kas_monthly_amount || 20000).toString() }))
+            setPayForm(prev => ({ ...prev, amount: (currentUser.kas_monthly_amount || 25000).toString() }))
         }
     }, [currentUser])
 
@@ -56,7 +56,7 @@ export default function MyFinancePage() {
             notes: payForm.notes
         }
 
-        const { error } = await supabase.from('member_kas').upsert(payload, { onConflict: 'member_id, month' })
+        const { error } = await supabase.from('member_kas').insert(payload)
         
         if (error) {
             alert('Gagal mengirim konfirmasi: ' + error.message)
@@ -71,13 +71,21 @@ export default function MyFinancePage() {
     const currentYear = new Date().getFullYear()
     const monthlyStatus = Array.from({ length: 12 }, (_, i) => {
         const monthStr = `${currentYear}-${(i + 1).toString().padStart(2, '0')}-01`
-        const payment = kasHistory.find(k => k.month === monthStr)
+        const payments = kasHistory.filter(k => k.month === monthStr)
+        const totalPaid = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount_paid, 0)
+        const hasPending = payments.some(p => p.status === 'pending')
+        
+        let status = 'unpaid'
+        if (totalPaid >= (currentUser?.kas_monthly_amount || 25000)) status = 'paid'
+        else if (totalPaid > 0) status = 'partial'
+        else if (hasPending) status = 'pending'
+
         return {
             month: new Date(currentYear, i).toLocaleString('id-ID', { month: 'long' }),
             monthVal: `${currentYear}-${(i + 1).toString().padStart(2, '0')}`,
-            status: payment ? payment.status : 'unpaid',
-            amount: payment ? payment.amount_paid : 0,
-            date: payment ? payment.payment_date : null
+            status: status as any,
+            amount: totalPaid,
+            payments: payments // All logs for this month
         }
     })
 
@@ -124,30 +132,44 @@ export default function MyFinancePage() {
                             {monthlyStatus.map((m, idx) => {
                                 const isFuture = new Date(currentYear, idx) > new Date()
                                 return (
-                                    <div key={m.month} style={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        justifyContent: 'space-between', 
-                                        padding: '1rem',
-                                        borderBottom: idx === 11 ? 'none' : '1px solid var(--border-color)',
-                                        opacity: isFuture ? 0.5 : 1
-                                    }}>
+                                    <div key={m.month} className="card" style={{ padding: '1.25rem', marginBottom: '1rem', border: isFuture ? '1px dashed var(--border-color)' : '1px solid var(--border-color)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                         <div>
                                             <div style={{ fontWeight: 600 }}>{m.month}</div>
-                                            {m.date && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Dibayar: {formatDateShort(m.date)}</div>}
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                                                Total Bayar: {formatCurrency(m.amount)}
+                                            </div>
                                         </div>
                                         <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                             <div style={{ textAlign: 'right' }}>
                                                 <span className={`badge badge-${m.status === 'paid' ? 'success' : m.status === 'partial' ? 'warning' : m.status === 'pending' ? 'info' : isFuture ? 'default' : 'danger'}`}>
                                                     {m.status === 'paid' ? 'Lunas' : m.status === 'partial' ? 'Sebagian' : m.status === 'pending' ? 'Menunggu Approval' : isFuture ? 'Mendatang' : 'Belum Bayar'}
                                                 </span>
-                                                {m.amount > 0 && <div style={{ fontSize: '0.875rem', fontWeight: 600, marginTop: '0.25rem' }}>{formatCurrency(m.amount)}</div>}
                                             </div>
-                                            {m.status === 'unpaid' && !isFuture && (
+                                            {m.status !== 'paid' && !isFuture && (
                                                 <button className="btn btn-ghost btn-sm btn-icon" onClick={() => { setPayForm({ ...payForm, month: m.monthVal }); setShowPayModal(true) }} title="Bayar Sekarang"><Plus size={14} /></button>
                                             )}
                                         </div>
                                     </div>
+                                    
+                                    {m.payments.length > 0 && (
+                                        <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.025em' }}>Riwayat Pembayaran</div>
+                                            {m.payments.map((p: any) => (
+                                                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', padding: '0.25rem 0' }}>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                        <Clock size={12} style={{ color: 'var(--text-secondary)' }} />
+                                                        <span>{formatDateShort(p.payment_date)}</span>
+                                                        <span className={`badge badge-${p.status === 'paid' ? 'success' : p.status === 'pending' ? 'info' : 'warning'}`} style={{ fontSize: '0.625rem', padding: '0 0.4rem' }}>
+                                                            {p.status.toUpperCase()}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ fontWeight: 600 }}>{formatCurrency(p.amount_paid)}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                                 )
                             })}
                         </div>
@@ -194,7 +216,7 @@ export default function MyFinancePage() {
                                 <div>
                                     <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-info)', marginBottom: '0.25rem' }}>Informasi Pembayaran Kas</h3>
                                     <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                        Pembayaran kas dilakukan setiap bulan sebesar <strong>{formatCurrency(currentUser?.kas_monthly_amount || 20000)}</strong>. 
+                                        Pembayaran kas dilakukan setiap bulan sebesar <strong>{formatCurrency(currentUser?.kas_monthly_amount || 25000)}</strong>. 
                                         Silakan hubungi tim Finance untuk melakukan pembayaran atau konfirmasi.
                                     </p>
                                 </div>

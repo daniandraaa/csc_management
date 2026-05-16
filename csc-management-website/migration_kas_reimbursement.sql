@@ -38,3 +38,13 @@ CREATE POLICY "Anon can delete kas" ON member_kas FOR DELETE TO anon USING (true
 ALTER TABLE member_kas ADD COLUMN IF NOT EXISTS receipt_url TEXT;
 ALTER TABLE member_kas DROP CONSTRAINT IF EXISTS member_kas_status_check;
 ALTER TABLE member_kas ADD CONSTRAINT member_kas_status_check CHECK (status IN ('unpaid', 'pending', 'partial', 'paid'));
+
+-- Add kas_monthly_amount to members
+ALTER TABLE members ADD COLUMN IF NOT EXISTS kas_monthly_amount DECIMAL(15,2) DEFAULT 20000;
+
+-- Remove unique constraint to allow multiple records per month
+ALTER TABLE member_kas DROP CONSTRAINT IF EXISTS member_kas_member_id_month_key;
+
+-- Add rejected status to member_kas
+ALTER TABLE member_kas DROP CONSTRAINT IF EXISTS member_kas_status_check;
+ALTER TABLE member_kas ADD CONSTRAINT member_kas_status_check CHECK (status IN ('unpaid', 'pending', 'partial', 'paid', 'rejected'));
