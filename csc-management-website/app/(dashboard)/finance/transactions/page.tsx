@@ -107,7 +107,30 @@ export default function TransactionsPage() {
                         </select>
                     </div>
                     <div className="toolbar-right">
-                        <button className="btn btn-secondary btn-sm" onClick={() => setShowCsvImport(true)}><Upload size={14} /> Import</button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setShowCsvImport(true)} style={{ marginRight: '0.5rem' }}><Upload size={14} /> Import</button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => {
+                            const pdfData = filtered.map(t => ({
+                                transaction_date: formatDateShort(t.transaction_date),
+                                description: t.description,
+                                program: t.program?.name || '-',
+                                category: t.category || '-',
+                                type: t.type === 'income' ? 'Masuk' : 'Keluar',
+                                amount: formatCurrency(t.amount)
+                            }))
+                            exportToPdf({
+                                title: 'Laporan Transaksi Keuangan CSC',
+                                subtitle: `Ringkasan: Masuk ${formatCurrency(totalIncome)} | Keluar ${formatCurrency(totalExpense)} | Saldo ${formatCurrency(totalIncome - totalExpense)}`,
+                                columns: [
+                                    { header: 'Tanggal', key: 'transaction_date' },
+                                    { header: 'Deskripsi', key: 'description' },
+                                    { header: 'Program', key: 'program' },
+                                    { header: 'Kategori', key: 'category' },
+                                    { header: 'Tipe', key: 'type' },
+                                    { header: 'Jumlah', key: 'amount' },
+                                ],
+                                data: pdfData
+                            })
+                        }} style={{ marginRight: '0.5rem' }}><FileText size={14} /> Export PDF</button>
                         <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ program_id: '', type: 'expense', category: '', description: '', amount: '', transaction_date: new Date().toISOString().split('T')[0], receipt_url: '' }); setShowModal(true) }}>
                             <Plus size={16} /> Transaksi
                         </button>

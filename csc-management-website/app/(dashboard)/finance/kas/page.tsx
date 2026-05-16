@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDateShort } from '@/lib/utils'
-import { DollarSign, Plus, X, Search, Filter, Download } from 'lucide-react'
-import { exportToCsv } from '@/lib/export'
+import { DollarSign, Plus, X, Search, Filter, Download, FileText } from 'lucide-react'
+import { exportToPdf, exportToCsv } from '@/lib/export'
 
 const MONTHS = [
     { label: 'Semua Bulan', value: 'all' },
@@ -256,7 +256,29 @@ export default function KasManagementPage() {
                         </div>
                     </div>
                     <div className="toolbar-right" style={{ gap: '0.75rem' }}>
-                        <button className="btn btn-secondary" style={{ borderRadius: '0.75rem' }} onClick={() => exportToCsv([], filtered, `Kas_Export.csv`)}><Download size={16} /> Export CSV</button>
+                        <button className="btn btn-secondary" style={{ borderRadius: '0.75rem' }} onClick={() => {
+                            const pdfData = filtered.map(i => ({
+                                member_name: i.member?.full_name,
+                                nim: i.member?.nim,
+                                month_label: new Date(i.month).toLocaleString('id-ID', { month: 'long', year: 'numeric' }),
+                                date: i.payment_date ? formatDateShort(i.payment_date) : '-',
+                                amount: formatCurrency(i.amount_paid),
+                                status: i.status === 'paid' ? 'Lunas' : i.status === 'pending' ? 'Menunggu' : i.status
+                            }))
+                            exportToPdf({
+                                title: 'Laporan Kas Anggota CSC',
+                                subtitle: `Periode: ${filterMonth === 'all' ? 'Semua Bulan' : MONTHS.find(m => m.value === filterMonth)?.label} ${filterYear === 'all' ? 'Semua Tahun' : filterYear}`,
+                                columns: [
+                                    { header: 'Anggota', key: 'member_name' },
+                                    { header: 'NIM', key: 'nim' },
+                                    { header: 'Bulan', key: 'month_label' },
+                                    { header: 'Tanggal', key: 'date' },
+                                    { header: 'Jumlah', key: 'amount' },
+                                    { header: 'Status', key: 'status' },
+                                ],
+                                data: pdfData
+                            })
+                        }}><FileText size={16} /> Export PDF</button>
                         <button className="btn btn-primary" style={{ borderRadius: '0.75rem' }} onClick={() => { 
                             setEditId(null); 
                             setForm({ 
