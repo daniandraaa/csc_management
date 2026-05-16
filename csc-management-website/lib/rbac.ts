@@ -57,6 +57,7 @@ const PAGE_PERMISSIONS: PagePermission[] = [
         path: '/overview/my-attendance', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'],
         actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'] }
     },
+    { path: '/overview/my-finance', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff'], departments: ['all'] },
 
     // Human Resources
     {
@@ -120,6 +121,10 @@ const PAGE_PERMISSIONS: PagePermission[] = [
     },
     {
         path: '/finance/transactions', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
+    },
+    {
+        path: '/finance/kas', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
         actions: { create: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
     },
 

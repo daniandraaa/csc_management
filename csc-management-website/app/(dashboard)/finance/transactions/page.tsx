@@ -157,7 +157,18 @@ export default function TransactionsPage() {
                                 <div className="form-group"><label className="form-label">Deskripsi *</label><input className="form-input" required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div className="form-group"><label className="form-label">Program</label><select className="form-select" value={form.program_id} onChange={e => setForm({ ...form, program_id: e.target.value })}><option value="">Pilih</option>{programs.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-                                    <div className="form-group"><label className="form-label">Kategori</label><input className="form-input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} /></div>
+                                    <div className="form-group">
+                                        <label className="form-label">Kategori</label>
+                                        <select className="form-select" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+                                            <option value="">Pilih Kategori</option>
+                                            <option value="Operasional">Operasional</option>
+                                            <option value="Kas Anggota">Kas Anggota</option>
+                                            <option value="Logistik">Logistik</option>
+                                            <option value="Event">Event</option>
+                                            <option value="Dana Investasi">Dana Investasi</option>
+                                            <option value="Lainnya">Lainnya</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div className="form-group"><label className="form-label">Tanggal</label><input className="form-input" type="date" value={form.transaction_date} onChange={e => setForm({ ...form, transaction_date: e.target.value })} /></div>
                             </div><div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Batal</button><button type="submit" className="btn btn-primary">{editId ? 'Simpan' : 'Tambah'}</button></div></form>

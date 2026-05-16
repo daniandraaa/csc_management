@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { useCurrentUser } from '@/lib/auth'
-import { getVisibleSections } from '@/lib/rbac'
+import { getVisibleSections, canManageModule } from '@/lib/rbac'
 import { getInitials } from '@/lib/utils'
 import { hashPassword, verifyPassword } from '@/lib/password'
 import { supabase } from '@/lib/supabase'
@@ -31,7 +31,8 @@ const navSections = [
             { label: 'KPI Program', href: '/overview/kpi', icon: BarChart3 },
             { label: 'Ajukan Konten', href: '/overview/content-request', icon: Send, badgeKey: 'content' },
             { label: 'Ajukan ke PR', href: '/overview/pr-request', icon: UserCheck, badgeKey: 'pr_request' },
-            { label: 'Reimbursement', href: '/finance/reimbursement', icon: Receipt, badgeKey: 'reimbursement' },
+            { label: 'Reimbursement Saya', href: '/finance/reimbursement', icon: Receipt, badgeKey: 'reimbursement' },
+            { label: 'Keuangan Saya', href: '/overview/my-finance', icon: DollarSign },
             { label: 'Pengaduan Anonim', href: '/overview/advocacy', icon: MessageCircle },
             { label: 'Kehadiran Saya', href: '/overview/my-attendance', icon: CalendarCheck },
         ],
@@ -63,6 +64,7 @@ const navSections = [
         title: 'Finance',
         items: [
             { label: 'Reimbursement', href: '/finance/reimbursement', icon: Receipt, badgeKey: 'reimbursement' },
+            { label: 'Kas Anggota', href: '/finance/kas', icon: DollarSign },
             { label: 'Transaksi', href: '/finance/transactions', icon: DollarSign },
         ],
     },
@@ -143,8 +145,12 @@ export default function Sidebar() {
         const { count: pReq } = await supabase.from('pr_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')
         results.pr_request = pReq || 0
 
-        // 3. Reimbursements (Finance/Admin/BOE see pending)
-        const { count: reCount } = await supabase.from('reimbursements').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+        // 3. Reimbursements (Finance see all pending, members see their own)
+        let reQuery = supabase.from('reimbursements').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+        if (!canManageModule(currentUser, 'reimbursement')) {
+            reQuery = reQuery.eq('member_id', currentUser.id)
+        }
+        const { count: reCount } = await reQuery
         results.reimbursement = reCount || 0
 
         // 4. Jobdesk PR (Current user's on going/pending tasks)

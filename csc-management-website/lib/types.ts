@@ -194,6 +194,7 @@ export interface Reimbursement {
     title: string
     description: string | null
     amount: number
+    reimbursed_amount?: number
     receipt_url: string | null
     status: 'pending' | 'approved' | 'rejected' | 'paid'
     approved_by: string | null
@@ -217,6 +218,23 @@ export interface FinancialTransaction {
     receipt_url: string | null
     recorded_by: string | null
     recorder?: Member
+    reimbursement_id?: string | null
+    member_id?: string | null
+    created_at: string
+    updated_at: string
+}
+
+export interface MemberKas {
+    id: string
+    member_id: string
+    member?: Member
+    month: string
+    amount_paid: number
+    status: 'unpaid' | 'pending' | 'partial' | 'paid'
+    payment_date: string | null
+    transaction_id: string | null
+    receipt_url?: string | null
+    notes: string | null
     created_at: string
     updated_at: string
 }
