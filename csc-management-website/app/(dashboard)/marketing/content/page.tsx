@@ -37,13 +37,15 @@ export default function ContentPage() {
     const [showCsvImport, setShowCsvImport] = useState(false)
     const [form, setForm] = useState({ title: '', platform: '', content_type: 'post', description: '', scheduled_date: '', status: 'draft', assigned_to: '', content_url: '', notes: '' })
     const [editId, setEditId] = useState<string | null>(null)
+    const [picSearch, setPicSearch] = useState('')
+    const [showPicList, setShowPicList] = useState(false)
 
     useEffect(() => { loadData() }, [])
 
     async function loadData() {
         setLoading(true)
         const { data } = await supabase.from('content_plans').select('*, assignee:members!content_plans_assigned_to_fkey(full_name)').order('scheduled_date', { ascending: true })
-        const { data: m } = await supabase.from('members').select('id,full_name')
+        const { data: m } = await supabase.from('members').select('id,full_name').order('full_name')
         const { data: reqs } = await supabase.from('content_requests')
             .select('*, requester:members!content_requests_requester_id_fkey(full_name, department)')
             .order('created_at', { ascending: false })
@@ -57,7 +59,7 @@ export default function ContentPage() {
         e.preventDefault()
         const payload = { ...form, assigned_to: form.assigned_to || null, scheduled_date: form.scheduled_date || null }
         if (editId) { await supabase.from('content_plans').update(payload).eq('id', editId) } else { await supabase.from('content_plans').insert(payload) }
-        setShowModal(false); setEditId(null); setForm({ title: '', platform: '', content_type: 'post', description: '', scheduled_date: '', status: 'draft', assigned_to: '', content_url: '', notes: '' }); loadData()
+        setShowModal(false); setEditId(null); setForm({ title: '', platform: '', content_type: 'post', description: '', scheduled_date: '', status: 'draft', assigned_to: '', content_url: '', notes: '' }); setPicSearch(''); setShowPicList(false); loadData()
     }
 
     async function handleCsvImport(rows: Record<string, string>[]) {
@@ -114,6 +116,8 @@ export default function ContentPage() {
         rejected: { bg: '#fee2e2', text: '#991b1b', label: 'Ditolak' },
     }
 
+    const filteredMembers = members.filter(m => m.full_name.toLowerCase().includes(picSearch.toLowerCase()))
+
     return (
         <div>
             <div className="topbar"><div className="topbar-title">Content Planner</div></div>
@@ -148,7 +152,7 @@ export default function ContentPage() {
                                 <button className="btn btn-secondary btn-sm" onClick={() => setShowCsvImport(true)}><Upload size={14} /> Import CSV</button>
                                 <button className="btn btn-secondary btn-sm" onClick={() => exportToCsv(PDF_COLUMNS, plans, `CSC_Content_${new Date().toISOString().split('T')[0]}.csv`)}><Download size={14} /> CSV</button>
                                 <button className="btn btn-secondary btn-sm" onClick={() => exportToPdf({ title: 'Content Plan CSC', subtitle: `Total: ${plans.length} konten`, columns: PDF_COLUMNS, data: plans })}><FileText size={14} /> Export PDF</button>
-                                <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ title: '', platform: '', content_type: 'post', description: '', scheduled_date: '', status: 'draft', assigned_to: '', content_url: '', notes: '' }); setShowModal(true) }}><Plus size={16} /> Tambah Konten</button>
+                                <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ title: '', platform: '', content_type: 'post', description: '', scheduled_date: '', status: 'draft', assigned_to: '', content_url: '', notes: '' }); setPicSearch(''); setShowModal(true) }}><Plus size={16} /> Tambah Konten</button>
                             </div>
                         </div>
 
@@ -170,7 +174,7 @@ export default function ContentPage() {
                                                 {p.description && <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 6 }}>{p.description}</p>}
                                                 {p.assignee && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>PIC: {p.assignee.full_name}</span>}
                                                 <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-                                                    <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ title: p.title, platform: p.platform, content_type: p.content_type, description: p.description || '', scheduled_date: p.scheduled_date || '', status: p.status, assigned_to: p.assigned_to || '', content_url: p.content_url || '', notes: p.notes || '' }); setEditId(p.id); setShowModal(true) }}>Edit</button>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ title: p.title, platform: p.platform, content_type: p.content_type, description: p.description || '', scheduled_date: p.scheduled_date || '', status: p.status, assigned_to: p.assigned_to || '', content_url: p.content_url || '', notes: p.notes || '' }); setEditId(p.id); setPicSearch(p.assignee?.full_name || ''); setShowModal(true) }}>Edit</button>
                                                     <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(p.id)}>Hapus</button>
                                                 </div>
                                             </div>
@@ -268,7 +272,52 @@ export default function ContentPage() {
                                 <div className="form-group"><label className="form-label">Deskripsi</label><textarea className="form-textarea" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div className="form-group"><label className="form-label">Jadwal</label><input className="form-input" type="date" value={form.scheduled_date} onChange={e => setForm({ ...form, scheduled_date: e.target.value })} /></div>
-                                    <div className="form-group"><label className="form-label">PIC</label><select className="form-select" value={form.assigned_to} onChange={e => setForm({ ...form, assigned_to: e.target.value })}><option value="">Pilih</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
+                                    <div className="form-group" style={{ position: 'relative' }}>
+                                        <label className="form-label">PIC</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <input 
+                                                className="form-input" 
+                                                placeholder="Cari PIC..." 
+                                                value={picSearch}
+                                                autoComplete="off"
+                                                onChange={e => {
+                                                    setPicSearch(e.target.value)
+                                                    setShowPicList(true)
+                                                    if (e.target.value === '') setForm({ ...form, assigned_to: '' })
+                                                }}
+                                                onFocus={() => setShowPicList(true)}
+                                                onBlur={() => setTimeout(() => setShowPicList(false), 200)}
+                                            />
+                                            {showPicList && (
+                                                <div style={{ 
+                                                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                                                    background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+                                                    borderRadius: '0.5rem', marginTop: '0.25rem', maxHeight: '200px', overflowY: 'auto',
+                                                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                                                }}>
+                                                    {filteredMembers.length === 0 ? (
+                                                        <div style={{ padding: '0.75rem', fontSize: '0.875rem', color: 'var(--color-text-tertiary)', textAlign: 'center' }}>Tidak ditemukan</div>
+                                                    ) : (
+                                                        filteredMembers.map((m: any) => (
+                                                            <div 
+                                                                key={m.id}
+                                                                style={{ padding: '0.75rem', fontSize: '0.875rem', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}
+                                                                onClick={() => {
+                                                                    setForm({ ...form, assigned_to: m.id })
+                                                                    setPicSearch(m.full_name)
+                                                                    setShowPicList(false)
+                                                                }}
+                                                                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                {m.full_name}
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="form-group"><label className="form-label">Status</label><select className="form-select" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="draft">Draft</option><option value="in_review">In Review</option><option value="approved">Approved</option><option value="published">Published</option><option value="cancelled">Cancelled</option></select></div>
                             </div><div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Batal</button><button type="submit" className="btn btn-primary">{editId ? 'Simpan' : 'Tambah'}</button></div></form>

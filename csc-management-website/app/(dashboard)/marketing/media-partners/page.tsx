@@ -15,6 +15,7 @@ const CSV_COLUMNS = [
     { key: 'contact_phone', label: 'Telepon' },
     { key: 'social_media', label: 'Social Media' },
     { key: 'status', label: 'Status' },
+    { key: 'mou_link', label: 'Link MoU' },
 ]
 const PDF_COLUMNS = [
     { header: 'Nama', key: 'name' },
@@ -23,6 +24,7 @@ const PDF_COLUMNS = [
     { header: 'Email', key: 'contact_email' },
     { header: 'Social Media', key: 'social_media' },
     { header: 'Status', key: 'status' },
+    { header: 'Link MoU', key: 'mou_link' },
 ]
 
 export default function MediaPartnersPage() {
@@ -30,7 +32,7 @@ export default function MediaPartnersPage() {
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
     const [showCsvImport, setShowCsvImport] = useState(false)
-    const [form, setForm] = useState({ name: '', type: '', contact_person: '', contact_email: '', contact_phone: '', social_media: '', status: 'active', notes: '' })
+    const [form, setForm] = useState({ name: '', type: '', contact_person: '', contact_email: '', contact_phone: '', social_media: '', status: 'active', notes: '', mou_link: '' })
     const [editId, setEditId] = useState<string | null>(null)
 
     useEffect(() => { loadData() }, [])
@@ -44,11 +46,11 @@ export default function MediaPartnersPage() {
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
         if (editId) { await supabase.from('media_partners').update(form).eq('id', editId) } else { await supabase.from('media_partners').insert(form) }
-        setShowModal(false); setEditId(null); setForm({ name: '', type: '', contact_person: '', contact_email: '', contact_phone: '', social_media: '', status: 'active', notes: '' }); loadData()
+        setShowModal(false); setEditId(null); setForm({ name: '', type: '', contact_person: '', contact_email: '', contact_phone: '', social_media: '', status: 'active', notes: '', mou_link: '' }); loadData()
     }
 
     async function handleCsvImport(rows: Record<string, string>[]) {
-        const payload = rows.map(r => ({ name: r.name, type: r.type || null, contact_person: r.contact_person || null, contact_email: r.contact_email || null, contact_phone: r.contact_phone || null, social_media: r.social_media || null, status: r.status || 'active' }))
+        const payload = rows.map(r => ({ name: r.name, type: r.type || null, contact_person: r.contact_person || null, contact_email: r.contact_email || null, contact_phone: r.contact_phone || null, social_media: r.social_media || null, status: r.status || 'active', mou_link: r.mou_link || null }))
         await supabase.from('media_partners').insert(payload)
     }
 
@@ -77,7 +79,7 @@ export default function MediaPartnersPage() {
                         <button className="btn btn-secondary btn-sm" onClick={() => setShowCsvImport(true)}><Upload size={14} /> Import CSV</button>
                         <button className="btn btn-secondary btn-sm" onClick={() => exportToCsv(PDF_COLUMNS, items, `CSC_MediaPartner_${new Date().toISOString().split('T')[0]}.csv`)}><Download size={14} /> CSV</button>
                         <button className="btn btn-secondary btn-sm" onClick={() => exportToPdf({ title: 'Daftar Media Partner CSC', subtitle: `Total: ${items.length} media partner`, columns: PDF_COLUMNS, data: items })}><FileText size={14} /> Export PDF</button>
-                        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ name: '', type: '', contact_person: '', contact_email: '', contact_phone: '', social_media: '', status: 'active', notes: '' }); setShowModal(true) }}><Plus size={16} /> Tambah Media Partner</button>
+                        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ name: '', type: '', contact_person: '', contact_email: '', contact_phone: '', social_media: '', status: 'active', notes: '', mou_link: '' }); setShowModal(true) }}><Plus size={16} /> Tambah Media Partner</button>
                     </div>
                 </div>
 
@@ -117,10 +119,16 @@ export default function MediaPartnersPage() {
                                             <span style={{ color: 'var(--color-brand-600)', fontWeight: 500 }}>{mp.social_media}</span>
                                         </div>
                                     )}
+                                    {mp.mou_link && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.875rem' }}>
+                                            <FileText size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+                                            <a href={mp.mou_link} target="_blank" rel="noopener noreferrer" className="link-hover" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>Lihat MoU</a>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 16, borderTop: '1px solid var(--color-border-primary)' }}>
-                                    <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => { setForm({ name: mp.name, type: mp.type || '', contact_person: mp.contact_person || '', contact_email: mp.contact_email || '', contact_phone: mp.contact_phone || '', social_media: mp.social_media || '', status: mp.status, notes: mp.notes || '' }); setEditId(mp.id); setShowModal(true) }}>Edit</button>
+                                    <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => { setForm({ name: mp.name, type: mp.type || '', contact_person: mp.contact_person || '', contact_email: mp.contact_email || '', contact_phone: mp.contact_phone || '', social_media: mp.social_media || '', status: mp.status, notes: mp.notes || '', mou_link: mp.mou_link || '' }); setEditId(mp.id); setShowModal(true) }}>Edit</button>
                                     <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(mp.id)}>Hapus</button>
                                 </div>
                             </div>
@@ -143,8 +151,10 @@ export default function MediaPartnersPage() {
                                 <div className="form-group"><label className="form-label">Contact Person</label><input className="form-input" value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} /></div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div className="form-group"><label className="form-label">Email</label><input className="form-input" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} /></div>
-                                    <div className="form-group"><label className="form-label">Social Media</label><input className="form-input" value={form.social_media} onChange={e => setForm({ ...form, social_media: e.target.value })} /></div>
+                                    <div className="form-group"><label className="form-label">Telepon</label><input className="form-input" value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} /></div>
                                 </div>
+                                <div className="form-group"><label className="form-label">Social Media</label><input className="form-input" value={form.social_media} onChange={e => setForm({ ...form, social_media: e.target.value })} /></div>
+                                <div className="form-group"><label className="form-label">Link MoU (Google Drive/URL)</label><input className="form-input" placeholder="https://..." value={form.mou_link} onChange={e => setForm({ ...form, mou_link: e.target.value })} /></div>
                             </div><div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Batal</button><button type="submit" className="btn btn-primary">{editId ? 'Simpan' : 'Tambah'}</button></div></form>
                         </div>
                     </div>
