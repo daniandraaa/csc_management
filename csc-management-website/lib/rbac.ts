@@ -110,7 +110,7 @@ const PAGE_PERMISSIONS: PagePermission[] = [
         actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary'], delete: ['BOE', 'C Level', 'Manager'] }
     },
     {
-        path: '/operating/orders', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff', 'Business Partner'], departments: ['all'],
+        path: '/operating/orders', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
         actions: { create: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
     },
 
@@ -130,10 +130,14 @@ const PAGE_PERMISSIONS: PagePermission[] = [
 
     // Business
     {
-        path: '/business/partners', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff', 'Business Partner'], departments: ['all'],
+        path: '/business/partners', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
         actions: { create: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
     },
-    { path: '/business/overview', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff', 'Business Partner'], departments: ['all'] },
+    {
+        path: '/business/agents', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager'], approve: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
+    },
+    { path: '/business/overview', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'] },
 
     // Marketing
     {
@@ -291,6 +295,11 @@ export function isSecretary(user: CurrentUser | null): boolean {
 export function getVisibleSections(user: CurrentUser | null): string[] {
     if (!user) return []
     if (user.role === 'BOE' || user.department === 'Executive' || user.role === 'Secretary' || user.role === 'Manager') {
+        return ['Overview', 'Human Resources', 'Operating', 'Finance', 'Business', 'Marketing & Branding', 'Public Relation', 'Administrasi']
+    }
+
+    // C Level from any department can see HR section (for attendance generation)
+    if (user.role === 'C Level') {
         return ['Overview', 'Human Resources', 'Operating', 'Finance', 'Business', 'Marketing & Branding', 'Public Relation', 'Administrasi']
     }
 

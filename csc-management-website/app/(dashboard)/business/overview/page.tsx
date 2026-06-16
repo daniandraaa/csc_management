@@ -1,6 +1,6 @@
 'use client'
 
-import { Handshake, TrendingUp, Users, Globe } from 'lucide-react'
+import { Handshake, TrendingUp, Globe } from 'lucide-react'
 
 export default function BusinessOverviewPage() {
     return (

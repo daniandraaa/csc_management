@@ -14,7 +14,7 @@ import {
     BarChart3, ClipboardCheck, FileText, Receipt, DollarSign,
     Handshake, Building2, Megaphone, PenTool, Newspaper,
     UserCheck, FileStack, ShieldCheck, LogOut, Shield,
-    KeyRound, X, Eye, EyeOff, MessageCircle, Send, ClipboardList, Menu, Bell, Mail, Settings
+    KeyRound, X, Eye, EyeOff, MessageCircle, Send, ClipboardList, Menu, Bell, Mail, Settings, Package, UserPlus
 } from 'lucide-react'
 
 const navSections = [
@@ -55,6 +55,7 @@ const navSections = [
             { label: 'Editorial Plan', href: '/operating/editorial', icon: PenTool },
             { label: 'Direktori CP', href: '/operating/directory', icon: MessageCircle },
             { label: 'Order Monitoring', href: '/operating/orders', icon: ClipboardList, badgeKey: 'orders' },
+            { label: 'Kelola Layanan', href: '/operating/services', icon: Package },
             { label: 'KPI Program', href: '/operating/kpi', icon: BarChart3 },
             { label: 'Evaluasi', href: '/operating/evaluations', icon: ClipboardCheck },
             { label: 'SOP Guide', href: '/operating/sop', icon: FileText },
@@ -71,7 +72,8 @@ const navSections = [
     {
         title: 'Business',
         items: [
-            { label: 'Mitra Bisnis', href: '/business/partners', icon: Handshake },
+            { label: 'Mitra Bisnis', href: '/business/agents', icon: Handshake },
+            { label: 'Kelola Layanan', href: '/operating/services', icon: Package },
             { label: 'Order Monitoring', href: '/operating/orders', icon: ClipboardList, badgeKey: 'orders' },
             { label: 'Overview', href: '/business/overview', icon: Building2 },
         ],

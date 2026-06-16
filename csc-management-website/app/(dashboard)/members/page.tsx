@@ -260,8 +260,21 @@ export default function MembersPage() {
                                         <div className="form-group"><label className="form-label">Role *</label><select className="form-select" required value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option value="">Pilih Role</option>{ROLES.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                        <div className="form-group"><label className="form-label">No. Telepon</label><input className="form-input" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
-                                        <div className="form-group"><label className="form-label">No. WhatsApp</label><input className="form-input" value={form.whatsapp} onChange={e => setForm({ ...form, whatsapp: e.target.value })} placeholder="628XXXXXXXXX" /></div>
+                                        <div className="form-group"><label className="form-label">No. Telepon</label><input className="form-input" value={form.phone} onChange={e => {
+                                            const val = e.target.value
+                                            setForm(prev => ({ ...prev, phone: val, ...(prev.whatsapp === prev.phone || !prev.whatsapp ? { whatsapp: val } : {}) }))
+                                        }} /></div>
+                                        <div className="form-group">
+                                            <label className="form-label">No. WhatsApp</label>
+                                            <input className="form-input" value={form.whatsapp} onChange={e => setForm({ ...form, whatsapp: e.target.value })} placeholder="628XXXXXXXXX" disabled={form.whatsapp === form.phone && !!form.phone} />
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.375rem', fontSize: '0.75rem', color: '#64748b', cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={form.whatsapp === form.phone && !!form.phone} onChange={e => {
+                                                    if (e.target.checked) setForm(prev => ({ ...prev, whatsapp: prev.phone }))
+                                                    else setForm(prev => ({ ...prev, whatsapp: '' }))
+                                                }} style={{ accentColor: '#9A3412' }} />
+                                                Sama dengan No. Telepon
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="modal-footer">

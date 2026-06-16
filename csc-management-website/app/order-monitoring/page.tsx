@@ -86,7 +86,26 @@ export default function OrderMonitoringPublicPage() {
                         boxShadow: '0 10px 25px -5px rgba(154, 52, 18, 0.15)',
                     }}><BarChart3 size={36} color="#9A3412" /></div>
                     <h1 style={{ color: '#431407', fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>Order Monitoring</h1>
-                    <p style={{ color: '#78350f', fontSize: '1rem' }}>Pantau perkembangan permintaan layanan CSC secara real-time</p>
+                    <p style={{ color: '#78350f', fontSize: '1rem', marginBottom: '1rem' }}>Pantau perkembangan permintaan layanan CSC secara real-time</p>
+                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <Link href="/order" style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '0.625rem 1.25rem', borderRadius: 12,
+                            background: 'linear-gradient(135deg, #9A3412, #7C2D12)', color: 'white',
+                            fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none',
+                            boxShadow: '0 4px 12px rgba(154, 52, 18, 0.25)',
+                        }}>
+                            <Package size={16} /> Buat Pemesanan Baru
+                        </Link>
+                        <Link href="/daftar-agen" style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '0.625rem 1.25rem', borderRadius: 12,
+                            background: 'white', color: '#9A3412', border: '2px solid #e7e5e4',
+                            fontWeight: 600, fontSize: '0.875rem', textDecoration: 'none',
+                        }}>
+                            Daftar Mitra Bisnis <ChevronRight size={14} />
+                        </Link>
+                    </div>
                 </div>
 
                 {/* Main Card */}

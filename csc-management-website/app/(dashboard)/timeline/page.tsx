@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/lib/auth'
 import { canPerformAction } from '@/lib/rbac'
 import { formatDateShort, getInitials } from '@/lib/utils'
-import { Clock, Plus, X, CalendarDays, Upload, FileText, Download, ChevronLeft, ChevronRight, List, Calendar, ClipboardList, Users } from 'lucide-react'
+import { Clock, Plus, X, CalendarDays, Upload, FileText, Download, ChevronLeft, ChevronRight, List, Calendar, ClipboardList, Users, Link2, ExternalLink, Sparkles } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { exportToPdf, exportToCsv } from '@/lib/export'
@@ -31,6 +31,7 @@ const CSV_COLUMNS = [
     { key: 'end_time', label: 'Jam Selesai' },
     { key: 'attendees_text', label: 'Peserta' },
     { key: 'decisions', label: 'Keputusan' },
+    { key: 'decision_link', label: 'Link Keputusan' },
 ]
 const PDF_COLUMNS = [
     { header: 'Tanggal', key: 'event_date' },
@@ -63,7 +64,7 @@ export default function TimelinePage() {
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [form, setForm] = useState({
         title: '', description: '', type: 'meeting', event_date: '', end_date: '', is_full_day: false,
-        start_time: '', end_time: '', location: '', created_by: '', attendees_text: '', decisions: '', notes: ''
+        start_time: '', end_time: '', location: '', created_by: '', attendees_text: '', decisions: '', decision_link: '', notes: ''
     })
     const [editId, setEditId] = useState<string | null>(null)
 
@@ -104,7 +105,7 @@ export default function TimelinePage() {
 
     const emptyForm = {
         title: '', description: '', type: 'meeting', event_date: '', end_date: '', is_full_day: false,
-        start_time: '', end_time: '', location: '', created_by: '', attendees_text: '', decisions: '', notes: ''
+        start_time: '', end_time: '', location: '', created_by: '', attendees_text: '', decisions: '', decision_link: '', notes: ''
     }
 
     async function handleSubmit(e: React.FormEvent) {
@@ -238,15 +239,19 @@ export default function TimelinePage() {
                     {TYPES.map(t => {
                         const count = allEvents.filter(i => i.type === t.value).length
                         return (
-                            <div key={t.value} className="stat-card" style={{ borderLeft: `3px solid ${t.color}` }}>
-                                <div>
-                                    <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.025em', marginBottom: 4 }}>{t.label}</div>
-                                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                            <div key={t.value} className="stat-card" style={{
+                                borderLeft: `4px solid ${t.color}`,
+                                background: `linear-gradient(135deg, white 0%, ${t.color}05 100%)`,
+                                position: 'relative', overflow: 'hidden',
+                            }}>
+                                <div style={{ position: 'absolute', top: -10, right: -10, width: 60, height: 60, borderRadius: '50%', background: `${t.color}08` }} />
+                                <div style={{ position: 'relative', zIndex: 1 }}>
+                                    <div style={{ color: t.color, fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{t.label}</div>
+                                    <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
                                         {count}
-                                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>Total</span>
                                     </div>
                                 </div>
-                                <div style={{ width: 48, height: 48, borderRadius: 12, background: `${t.color}10`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>{t.icon}</div>
+                                <div style={{ width: 44, height: 44, borderRadius: 14, background: `${t.color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', position: 'relative', zIndex: 1 }}>{t.icon}</div>
                             </div>
                         )
                     })}
@@ -445,17 +450,35 @@ export default function TimelinePage() {
                                     const typeInfo = TYPES.find(t => t.value === ev.type)
                                     return (
                                         <div key={ev.id} style={{
-                                            padding: '0.75rem', borderRadius: 8,
+                                            padding: '0.875rem', borderRadius: 12,
                                             border: '1px solid var(--color-border-primary)',
-                                            marginBottom: '0.5rem',
-                                            borderLeft: `3px solid ${typeInfo?.color || '#6b7280'}`,
+                                            marginBottom: '0.625rem',
+                                            borderLeft: `4px solid ${typeInfo?.color || '#6b7280'}`,
+                                            background: `linear-gradient(135deg, white 0%, ${typeInfo?.color || '#6b7280'}04 100%)`,
+                                            transition: 'all 0.2s ease',
                                         }}>
-                                            <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: 4 }}>{ev.title}</div>
-                                            {ev.is_full_day ? <div style={{ fontSize: '0.75rem', color: '#64748b' }}>🕐 Full Day</div> : ev.start_time && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>🕐 {ev.start_time.slice(0, 5)}{ev.end_time ? ` - ${ev.end_time.slice(0, 5)}` : ''}</div>}
-                                            {ev.location && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>📍 {ev.location}</div>}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 6 }}>
+                                                <span style={{ fontSize: '1rem' }}>{typeInfo?.icon}</span>
+                                                <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f172a', flex: 1 }}>{ev.title}</div>
+                                                <span style={{ fontSize: '0.625rem', fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: `${typeInfo?.color}15`, color: typeInfo?.color }}>{typeInfo?.label}</span>
+                                            </div>
+                                            {ev.is_full_day ? <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> Full Day</div> : ev.start_time && <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> {ev.start_time.slice(0, 5)}{ev.end_time ? ` - ${ev.end_time.slice(0, 5)}` : ''}</div>}
+                                            {ev.location && <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>📍 {ev.location}</div>}
+                                            {ev.description && <p style={{ fontSize: '0.75rem', color: '#475569', marginTop: 6, lineHeight: 1.5 }}>{ev.description}</p>}
+                                            {ev.decisions && (
+                                                <div style={{ marginTop: 6, padding: '0.5rem 0.625rem', background: '#fff1f2', borderRadius: 8, fontSize: '0.75rem', color: '#9f1239', display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+                                                    <ClipboardList size={12} style={{ marginTop: 2, flexShrink: 0 }} />
+                                                    <span>{ev.decisions}</span>
+                                                </div>
+                                            )}
+                                            {ev.decision_link && (
+                                                <a href={ev.decision_link} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: '0.75rem', color: '#6d28d9', fontWeight: 600, textDecoration: 'none', padding: '4px 8px', background: '#f5f3ff', borderRadius: 6, transition: 'all 0.15s' }}>
+                                                    <Link2 size={12} /> Dokumen Keputusan <ExternalLink size={10} />
+                                                </a>
+                                            )}
                                             {(canCreate || canDelete) && !ev._isProgram && (
-                                                <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
-                                                    <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.6875rem' }} onClick={() => { setForm({ ...ev, end_date: ev.end_date || '', attendees_text: ev.attendees_text || '', decisions: ev.decisions || '', notes: ev.notes || '' }); setEditId(ev.id); setShowModal(true) }}>Edit</button>
+                                                <div style={{ display: 'flex', gap: 4, marginTop: 8, paddingTop: 6, borderTop: '1px solid #f1f5f9' }}>
+                                                    <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.6875rem' }} onClick={() => { setForm({ ...ev, end_date: ev.end_date || '', attendees_text: ev.attendees_text || '', decisions: ev.decisions || '', decision_link: ev.decision_link || '', notes: ev.notes || '' }); setEditId(ev.id); setShowModal(true) }}>Edit</button>
                                                     {canDelete && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)', fontSize: '0.6875rem' }} onClick={() => handleDelete(ev.id)}>Hapus</button>}
                                                 </div>
                                             )}
@@ -557,8 +580,8 @@ export default function TimelinePage() {
 
                                                                 {item.decisions && (
                                                                     <div style={{ 
-                                                                        padding: '0.875rem', background: '#fff1f2', 
-                                                                        borderRadius: 10, border: '1px solid #fecdd3',
+                                                                        padding: '0.875rem', background: 'linear-gradient(135deg, #fff1f2 0%, #fce7f3 100%)', 
+                                                                        borderRadius: 12, border: '1px solid #fecdd3',
                                                                         marginBottom: '1rem'
                                                                     }}>
                                                                         <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#be123c', textTransform: 'uppercase', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -566,6 +589,19 @@ export default function TimelinePage() {
                                                                         </div>
                                                                         <p style={{ fontSize: '0.8125rem', color: '#9f1239', fontWeight: 500 }}>{item.decisions}</p>
                                                                     </div>
+                                                                )}
+
+                                                                {item.decision_link && (
+                                                                    <a href={item.decision_link} target="_blank" rel="noopener noreferrer" style={{
+                                                                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                                        padding: '0.625rem 1rem', borderRadius: 10, marginBottom: '1rem',
+                                                                        background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+                                                                        border: '1px solid #ddd6fe', color: '#6d28d9',
+                                                                        fontSize: '0.8125rem', fontWeight: 600, textDecoration: 'none',
+                                                                        transition: 'all 0.2s ease',
+                                                                    }}>
+                                                                        <Link2 size={14} /> Lihat Dokumen Keputusan <ExternalLink size={12} />
+                                                                    </a>
                                                                 )}
 
                                                                 {item.notes && (
@@ -591,7 +627,7 @@ export default function TimelinePage() {
                                                                     <div style={{ display: 'flex', gap: 4 }}>
                                                                         {canCreate && !item._isProgram && (
                                                                             <>
-                                                                                <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem' }} onClick={() => { setForm({ title: item.title, description: item.description || '', type: item.type, event_date: item.event_date, end_date: item.end_date || '', is_full_day: item.is_full_day || false, start_time: item.start_time || '', end_time: item.end_time || '', location: item.location || '', created_by: item.created_by || '', attendees_text: item.attendees_text || '', decisions: item.decisions || '', notes: item.notes || '' }); setEditId(item.id); setShowModal(true) }}>Edit</button>
+                                                                                <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem' }} onClick={() => { setForm({ title: item.title, description: item.description || '', type: item.type, event_date: item.event_date, end_date: item.end_date || '', is_full_day: item.is_full_day || false, start_time: item.start_time || '', end_time: item.end_time || '', location: item.location || '', created_by: item.created_by || '', attendees_text: item.attendees_text || '', decisions: item.decisions || '', decision_link: item.decision_link || '', notes: item.notes || '' }); setEditId(item.id); setShowModal(true) }}>Edit</button>
                                                                                 {canDelete && <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444', fontSize: '0.75rem' }} onClick={() => handleDelete(item.id)}>Hapus</button>}
                                                                             </>
                                                                         )}
@@ -645,6 +681,13 @@ export default function TimelinePage() {
                                 <div className="form-group"><label className="form-label">Deskripsi</label><textarea className="form-textarea" style={{ minHeight: 80 }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Deskripsi rapat/kegiatan..." /></div>
                                 <div className="form-group"><label className="form-label">Peserta</label><input className="form-input" value={form.attendees_text} onChange={e => setForm({ ...form, attendees_text: e.target.value })} placeholder="cth: Seluruh staf, Bidang Operating, dll" /></div>
                                 <div className="form-group"><label className="form-label">Keputusan/Hasil</label><textarea className="form-textarea" style={{ minHeight: 60 }} value={form.decisions} onChange={e => setForm({ ...form, decisions: e.target.value })} placeholder="Keputusan atau hasil dari rapat/kegiatan..." /></div>
+                                <div className="form-group">
+                                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <Link2 size={14} color="#6d28d9" /> Link Dokumen Keputusan
+                                    </label>
+                                    <input className="form-input" type="url" value={form.decision_link} onChange={e => setForm({ ...form, decision_link: e.target.value })} placeholder="https://docs.google.com/... atau link lainnya" style={{ borderColor: form.decision_link ? '#6d28d9' : undefined }} />
+                                    <p style={{ fontSize: '0.6875rem', color: '#94a3b8', marginTop: 4 }}>Upload link Google Docs, Notion, atau dokumen hasil keputusan rapat</p>
+                                </div>
                                 <div className="form-group"><label className="form-label">Catatan</label><input className="form-input" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
                             </div><div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Batal</button><button type="submit" className="btn btn-primary">{editId ? 'Simpan' : 'Tambah'}</button></div></form>
                         </div>
