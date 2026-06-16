@@ -250,7 +250,7 @@ export default function AgentsPage() {
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                                 <XAxis dataKey="name" axisLine={false} tickLine={false} />
                                                 <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `Rp ${val/1000}k`} />
-                                                <Tooltip formatter={(value: number) => formatRupiah(value)} />
+                                                <Tooltip formatter={(value: any) => formatRupiah(Number(value))} />
                                                 <Legend />
                                                 <Line type="monotone" dataKey="Pemasukan" stroke="#10b981" strokeWidth={3} activeDot={{ r: 8 }} />
                                                 <Line type="monotone" dataKey="Pengeluaran" stroke="#ef4444" strokeWidth={3} />
