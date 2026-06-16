@@ -157,7 +157,7 @@ export default function OrderMonitoringPage() {
                         <button className="btn btn-secondary btn-sm" onClick={() => exportToPdf({ title: 'Daftar Order Monitoring', subtitle: `Total Order: ${filtered.length}`, columns: PDF_COLUMNS, data: exportData })}>
                             <FileText size={14} /> Export PDF
                         </button>
-                        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ client_name: '', project_title: '', description: '', status: 'pending', operating_notes: '', handled_by: '', assigned_mitra_id: '', partner_fee: '' }); setShowModal(true) }}>
+                        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ client_name: '', project_title: '', description: '', status: 'pending', operating_notes: '', handled_by: '', assigned_mitra_id: '', partner_fee: '', order_value: '' }); setShowModal(true) }}>
                             <Plus size={16} /> Tambah Order
                         </button>
                     </div>
