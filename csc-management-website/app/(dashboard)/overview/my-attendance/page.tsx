@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/lib/auth'
 import { formatDateShort } from '@/lib/utils'
-import { CalendarCheck, CheckCircle2, XCircle, Clock, AlertTriangle, QrCode, X } from 'lucide-react'
+import { CalendarCheck, CheckCircle2, XCircle, Clock, AlertTriangle, QrCode, X, Download } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
+import { exportToPdf } from '@/lib/export'
 
 export default function MyAttendancePage() {
     const { currentUser } = useCurrentUser()
@@ -74,12 +75,27 @@ export default function MyAttendancePage() {
         setScanError(null)
 
         try {
-            // 1. Find session by token
-            const { data: session, error: sError } = await supabase
-                .from('attendance_sessions')
-                .select('id, title')
-                .eq('qr_token', decodedText)
-                .single()
+            // 1. Find session by token or URL
+            let sessionQuery = supabase.from('attendance_sessions').select('id, title')
+            
+            if (decodedText.includes('sessionId=')) {
+                try {
+                    const url = new URL(decodedText)
+                    const sessionId = url.searchParams.get('sessionId')
+                    if (sessionId) {
+                        sessionQuery = sessionQuery.eq('id', sessionId)
+                    } else {
+                        sessionQuery = sessionQuery.eq('qr_token', decodedText)
+                    }
+                } catch (e) {
+                    // fallback if not valid URL
+                    sessionQuery = sessionQuery.eq('qr_token', decodedText)
+                }
+            } else {
+                sessionQuery = sessionQuery.eq('qr_token', decodedText)
+            }
+
+            const { data: session, error: sError } = await sessionQuery.single()
 
             if (sError || !session) {
                 setScanError('QR Code tidak valid atau sesi tidak ditemukan.')
@@ -194,9 +210,30 @@ export default function MyAttendancePage() {
                         <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>Kehadiran Saya</h1>
                         <p className="page-subtitle" style={{ marginBottom: 0 }}>Lihat dan isi kehadiran kegiatan Anda</p>
                     </div>
-                    <button className="btn btn-primary" onClick={() => { setShowScanner(true); setScanError(null); setScanSuccess(null); }}>
-                        <QrCode size={18} /> Scan QR Check-In
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button className="btn btn-secondary" onClick={() => {
+                            const pdfData = sessions.map(s => ({
+                                title: s.session?.title,
+                                date: formatDateShort(s.session?.event_date),
+                                status: statusConfig[s.status]?.label || s.status
+                            }));
+                            exportToPdf({
+                                title: `Laporan Kehadiran: ${currentUser?.full_name}`,
+                                subtitle: `Tingkat Kehadiran: ${attendRate.toFixed(0)}%`,
+                                columns: [
+                                    { header: 'Kegiatan', key: 'title' },
+                                    { header: 'Tanggal', key: 'date' },
+                                    { header: 'Status', key: 'status' }
+                                ],
+                                data: pdfData
+                            });
+                        }}>
+                            <Download size={18} /> Export PDF
+                        </button>
+                        <button className="btn btn-primary" onClick={() => { setShowScanner(true); setScanError(null); setScanSuccess(null); }}>
+                            <QrCode size={18} /> Scan QR Check-In
+                        </button>
+                    </div>
                 </div>
 
                 {/* Stats */}

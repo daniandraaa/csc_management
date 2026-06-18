@@ -187,6 +187,7 @@ export default function ReimbursementPage() {
                                             <td data-label="Judul">
                                                 <div style={{ fontWeight: 500 }}>{r.title}</div>
                                                 {r.description && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</div>}
+                                                {r.notes && <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', marginTop: '0.25rem', fontStyle: 'italic', background: 'var(--bg-secondary)', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', display: 'inline-block' }}>Catatan: {r.notes}</div>}
                                             </td>
                                             <td data-label="Program">{r.program?.name || <span style={{ color: 'var(--text-tertiary)' }}>-</span>}</td>
                                             <td data-label="Jumlah">

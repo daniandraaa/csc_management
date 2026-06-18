@@ -10,6 +10,7 @@ import { exportToPdf } from '@/lib/export'
 const PDF_COLUMNS = [
     { header: 'Resi', key: 'tracking_code' },
     { header: 'Klien', key: 'client_name' },
+    { header: 'No. Telp', key: 'client_phone' },
     { header: 'Pekerjaan', key: 'project_title' },
     { header: 'Status', key: 'status_label' },
     { header: 'PIC', key: '_handler' },
@@ -29,10 +30,12 @@ export default function OrderMonitoringPage() {
     
     const [form, setForm] = useState({
         client_name: '',
+        client_phone: '',
         project_title: '',
         description: '',
         status: 'pending',
         operating_notes: '',
+        reject_reason: '',
         handled_by: '',
         assigned_mitra_id: '',
         partner_fee: '',
@@ -57,10 +60,13 @@ export default function OrderMonitoringPage() {
         e.preventDefault()
         const payload = {
             client_name: form.client_name,
+            client_phone: form.client_phone,
             project_title: form.project_title,
             description: form.description,
             status: form.status,
-            operating_notes: form.operating_notes,
+            operating_notes: form.status === 'rejected' && form.reject_reason 
+                ? (form.operating_notes ? form.operating_notes + '\n\nAlasan Penolakan: ' + form.reject_reason : 'Alasan Penolakan: ' + form.reject_reason)
+                : form.operating_notes,
             handled_by: form.handled_by || null,
             assigned_mitra_id: form.assigned_mitra_id || null,
             partner_fee: form.partner_fee ? parseFloat(form.partner_fee) : null,
@@ -85,7 +91,7 @@ export default function OrderMonitoringPage() {
         
         setShowModal(false)
         setEditId(null)
-        setForm({ client_name: '', project_title: '', description: '', status: 'pending', operating_notes: '', handled_by: '', assigned_mitra_id: '', partner_fee: '', order_value: '' })
+        setForm({ client_name: '', client_phone: '', project_title: '', description: '', status: 'pending', operating_notes: '', reject_reason: '', handled_by: '', assigned_mitra_id: '', partner_fee: '', order_value: '' })
         loadData()
     }
 
@@ -157,7 +163,7 @@ export default function OrderMonitoringPage() {
                         <button className="btn btn-secondary btn-sm" onClick={() => exportToPdf({ title: 'Daftar Order Monitoring', subtitle: `Total Order: ${filtered.length}`, columns: PDF_COLUMNS, data: exportData })}>
                             <FileText size={14} /> Export PDF
                         </button>
-                        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ client_name: '', project_title: '', description: '', status: 'pending', operating_notes: '', handled_by: '', assigned_mitra_id: '', partner_fee: '', order_value: '' }); setShowModal(true) }}>
+                        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ client_name: '', client_phone: '', project_title: '', description: '', status: 'pending', operating_notes: '', reject_reason: '', handled_by: '', assigned_mitra_id: '', partner_fee: '', order_value: '' }); setShowModal(true) }}>
                             <Plus size={16} /> Tambah Order
                         </button>
                     </div>
@@ -182,7 +188,10 @@ export default function OrderMonitoringPage() {
                                     filtered.map((o: any) => (
                                         <tr key={o.id}>
                                             <td data-label="Resi / Kode" style={{ fontWeight: 600, fontFamily: 'monospace', color: 'var(--color-brand-500)' }}>{o.tracking_code}</td>
-                                            <td data-label="Klien" style={{ fontWeight: 500 }}>{o.client_name}</td>
+                                            <td data-label="Klien">
+                                                <div style={{ fontWeight: 500 }}>{o.client_name}</div>
+                                                {o.client_phone && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{o.client_phone}</div>}
+                                            </td>
                                             <td data-label="Pekerjaan">
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                                     <div style={{ fontWeight: 600 }}>{o.project_title}</div>
@@ -201,7 +210,7 @@ export default function OrderMonitoringPage() {
                                             <td data-label="Tanggal Masuk">{formatDateShort(o.created_at)}</td>
                                             <td data-label="Aksi">
                                                 <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                                    <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ client_name: o.client_name, project_title: o.project_title, description: o.description || '', status: o.status, operating_notes: o.operating_notes || '', handled_by: o.handled_by || '', assigned_mitra_id: o.assigned_mitra_id || '', partner_fee: o.partner_fee || '', order_value: o.order_value || '' }); setEditId(o.id); setShowModal(true) }}>Kelola</button>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ client_name: o.client_name, client_phone: o.client_phone || '', project_title: o.project_title, description: o.description || '', status: o.status, operating_notes: o.operating_notes || '', reject_reason: o.reject_reason || '', handled_by: o.handled_by || '', assigned_mitra_id: o.assigned_mitra_id || '', partner_fee: o.partner_fee || '', order_value: o.order_value || '' }); setEditId(o.id); setShowModal(true) }}>Kelola</button>
                                                     <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(o.id)}>Hapus</button>
                                                 </div>
                                             </td>
@@ -219,8 +228,9 @@ export default function OrderMonitoringPage() {
                                 <div className="modal-body">
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                         <div className="form-group"><label className="form-label">Nama Klien / Instansi *</label><input className="form-input" required value={form.client_name} onChange={e => setForm({ ...form, client_name: e.target.value })} /></div>
-                                        <div className="form-group"><label className="form-label">Judul Permintaan *</label><input className="form-input" required value={form.project_title} onChange={e => setForm({ ...form, project_title: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">No. Telepon Klien</label><input className="form-input" value={form.client_phone} onChange={e => setForm({ ...form, client_phone: e.target.value })} /></div>
                                     </div>
+                                    <div className="form-group"><label className="form-label">Judul Permintaan *</label><input className="form-input" required value={form.project_title} onChange={e => setForm({ ...form, project_title: e.target.value })} /></div>
                                     
                                     <div className="form-group"><label className="form-label">Deskripsi Lengkap *</label><textarea className="form-textarea" required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ minHeight: 80 }} /></div>
                                     
@@ -237,6 +247,12 @@ export default function OrderMonitoringPage() {
                                                 <option value="rejected">Rejected</option>
                                             </select>
                                         </div>
+                                        {form.status === 'rejected' && (
+                                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                                <label className="form-label" style={{ color: 'var(--color-danger)' }}>Alasan Penolakan</label>
+                                                <textarea className="form-textarea" placeholder="Jelaskan alasan pesanan ditolak..." value={form.reject_reason} onChange={e => setForm({ ...form, reject_reason: e.target.value })} />
+                                            </div>
+                                        )}
                                         <div className="form-group">
                                             <label className="form-label">PIC Operating</label>
                                             <select className="form-select" value={form.handled_by} onChange={e => setForm({ ...form, handled_by: e.target.value })}>

@@ -35,9 +35,9 @@ export default function AdvocacyPage() {
     const [form, setForm] = useState({ member_id: '', title: '', description: '', category: 'advocacy', status: 'pending', response: '' })
     const [editId, setEditId] = useState<string | null>(null)
 
-    // Check permissions: C Level or HR Department cannot edit
-    const isRestricted = currentUser?.role === 'C Level' || currentUser?.department === 'Human Resource'
-    const canEdit = !isRestricted || currentUser?.role === 'BOE'
+    // Check permissions: All HR members can edit now
+    const isRestricted = false;
+    const canEdit = true;
 
     useEffect(() => { loadData() }, [])
 

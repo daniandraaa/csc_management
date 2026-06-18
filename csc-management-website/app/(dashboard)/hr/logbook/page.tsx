@@ -6,6 +6,8 @@ import { formatDateShort } from '@/lib/utils'
 import { BookOpen, Plus, X, Search, Upload, FileText, Download } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
 import { exportToPdf, exportToCsv } from '@/lib/export'
+import { useCurrentUser } from '@/lib/auth'
+import { canManageModule } from '@/lib/rbac'
 
 const CSV_COLUMNS = [
     { key: 'title', label: 'Judul', required: true },
@@ -32,12 +34,20 @@ export default function LogbookPage() {
     const [filterMember, setFilterMember] = useState('')
     const [form, setForm] = useState({ member_id: '', date: '', title: '', description: '', category: '', hours_spent: '' })
     const [editId, setEditId] = useState<string | null>(null)
+    const { currentUser } = useCurrentUser()
+    const canManage = canManageModule(currentUser, 'hr')
 
-    useEffect(() => { loadData() }, [])
+    useEffect(() => { if (currentUser) loadData() }, [currentUser])
 
     async function loadData() {
         setLoading(true)
-        const { data } = await supabase.from('logbook_entries').select('*, member:members(id,full_name)').order('date', { ascending: false })
+        let query = supabase.from('logbook_entries').select('*, member:members(id,full_name)').order('date', { ascending: false })
+        
+        if (!canManage && currentUser) {
+            query = query.eq('member_id', currentUser.id)
+        }
+        
+        const { data } = await query
         const { data: m } = await supabase.from('members').select('id,full_name').order('full_name')
         setEntries(data || []); setMembers(m || []); setLoading(false)
     }
@@ -81,16 +91,18 @@ export default function LogbookPage() {
                 <div className="toolbar">
                     <div className="toolbar-left">
                         <div className="search-input"><Search /><input className="form-input" placeholder="Cari..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: '2.25rem' }} /></div>
-                        <select className="form-select" style={{ width: 'auto' }} value={filterMember} onChange={e => setFilterMember(e.target.value)}>
-                            <option value="">Semua Anggota</option>
-                            {members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-                        </select>
+                        {canManage && (
+                            <select className="form-select" style={{ width: 'auto' }} value={filterMember} onChange={e => setFilterMember(e.target.value)}>
+                                <option value="">Semua Anggota</option>
+                                {members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+                            </select>
+                        )}
                     </div>
                     <div className="toolbar-right">
-                        <button className="btn btn-secondary btn-sm" onClick={() => setShowCsvImport(true)}><Upload size={14} /> Import CSV</button>
+                        {canManage && <button className="btn btn-secondary btn-sm" onClick={() => setShowCsvImport(true)}><Upload size={14} /> Import CSV</button>}
                         <button className="btn btn-secondary btn-sm" onClick={() => exportToCsv(PDF_COLUMNS, exportData, `CSC_Logbook_${new Date().toISOString().split('T')[0]}.csv`)}><Download size={14} /> CSV</button>
                         <button className="btn btn-secondary btn-sm" onClick={() => exportToPdf({ title: 'Logbook Aktivitas CSC', subtitle: `Total: ${filtered.length} entri`, columns: PDF_COLUMNS, data: exportData })}><FileText size={14} /> Export PDF</button>
-                        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ member_id: '', date: new Date().toISOString().split('T')[0], title: '', description: '', category: '', hours_spent: '' }); setShowModal(true) }}>
+                        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ member_id: canManage ? '' : (currentUser?.id || ''), date: new Date().toISOString().split('T')[0], title: '', description: '', category: '', hours_spent: '' }); setShowModal(true) }}>
                             <Plus size={16} /> Tambah Logbook
                         </button>
                     </div>
@@ -134,7 +146,11 @@ export default function LogbookPage() {
                             <div className="modal-header"><h2>{editId ? 'Edit' : 'Tambah'} Logbook</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)}><X size={18} /></button></div>
                             <form onSubmit={handleSubmit}>
                                 <div className="modal-body">
-                                    <div className="form-group"><label className="form-label">Anggota *</label><select className="form-select" required value={form.member_id} onChange={e => setForm({ ...form, member_id: e.target.value })}><option value="">Pilih</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
+                                    {canManage ? (
+                                        <div className="form-group"><label className="form-label">Anggota *</label><select className="form-select" required value={form.member_id} onChange={e => setForm({ ...form, member_id: e.target.value })}><option value="">Pilih</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>
+                                    ) : (
+                                        <div className="form-group"><label className="form-label">Anggota</label><input className="form-input" disabled value={currentUser?.full_name || ''} /></div>
+                                    )}
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                         <div className="form-group"><label className="form-label">Tanggal *</label><input className="form-input" type="date" required value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></div>
                                         <div className="form-group"><label className="form-label">Jam</label><input className="form-input" type="number" step="0.5" value={form.hours_spent} onChange={e => setForm({ ...form, hours_spent: e.target.value })} /></div>

@@ -15,6 +15,10 @@ export default function AttendancePage() {
     const [members, setMembers] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
+    // Filters
+    const [searchTerm, setSearchTerm] = useState('')
+    const [filterCategory, setFilterCategory] = useState('')
+
     // Generate modal states
     const [showGenerate, setShowGenerate] = useState(false)
     const [sourceType, setSourceType] = useState<'timeline' | 'program' | 'invitation'>('timeline')
@@ -24,6 +28,7 @@ export default function AttendancePage() {
     // Member selection modal
     const [showMemberSelect, setShowMemberSelect] = useState(false)
     const [selectedMembers, setSelectedMembers] = useState<{id: string, role: 'Peserta' | 'Panitia'}[]>([])
+    const [memberSearchTerm, setMemberSearchTerm] = useState('')
     const [targetSessionId, setTargetSessionId] = useState<string | null>(null) // For adding to existing
     const [sessionTitle, setSessionTitle] = useState('')
     const [sessionDate, setSessionDate] = useState('')
@@ -39,6 +44,10 @@ export default function AttendancePage() {
     const [showMemberSummary, setShowMemberSummary] = useState(false)
     const [memberSummaryData, setMemberSummaryData] = useState<any[]>([])
     const [summaryLoading, setSummaryLoading] = useState(false)
+    const [summaryFilterType, setSummaryFilterType] = useState<'all'|'month'|'quarter'>('all')
+    const [summaryMonth, setSummaryMonth] = useState(new Date().getMonth()) // 0-11
+    const [summaryYear, setSummaryYear] = useState(new Date().getFullYear())
+    const [summaryQuarter, setSummaryQuarter] = useState(Math.floor(new Date().getMonth() / 3) + 1) // 1-4
 
     // QR modal states
     const [showQR, setShowQR] = useState<any>(null)
@@ -55,6 +64,15 @@ export default function AttendancePage() {
             .select('*, creator:members!attendance_sessions_created_by_fkey(full_name)')
             .order('event_date', { ascending: false })
 
+        let timelineTypes: Record<string, string> = {}
+        if (data && data.length > 0) {
+            const timelineIds = data.filter((s: any) => s.source_type === 'timeline' && s.source_id).map((s: any) => s.source_id)
+            if (timelineIds.length > 0) {
+                const { data: timelines } = await supabase.from('timeline_entries').select('id, type').in('id', timelineIds)
+                timelines?.forEach((t: any) => timelineTypes[t.id] = t.type)
+            }
+        }
+
         // For each session, get member counts
         if (data) {
             const enriched = await Promise.all(data.map(async (s: any) => {
@@ -65,7 +83,7 @@ export default function AttendancePage() {
                 const present = members?.filter(m => m.status === 'present').length || 0
                 const absent = members?.filter(m => m.status === 'absent' || m.status === 'alpa').length || 0
                 const pending = members?.filter(m => m.status === 'pending').length || 0
-                return { ...s, _total: total, _present: present, _absent: absent, _pending: pending }
+                return { ...s, _total: total, _present: present, _absent: absent, _pending: pending, _timeline_type: timelineTypes[s.source_id] || null }
             }))
             setSessions(enriched)
         } else {
@@ -116,6 +134,7 @@ export default function AttendancePage() {
         setShowGenerate(false)
         setShowMemberSelect(true)
         setSelectedMembers([])
+        setMemberSearchTerm('')
     }
 
     function toggleMember(id: string) {
@@ -240,38 +259,58 @@ export default function AttendancePage() {
         }
     }
 
-    async function loadMemberSummary() {
+    async function loadMemberSummary(type = summaryFilterType, month = summaryMonth, year = summaryYear, quarter = summaryQuarter) {
         setSummaryLoading(true)
         setShowMemberSummary(true)
         
-        // Fetch all attendance records
-        const { data: attendance } = await supabase
-            .from('attendance_session_members')
-            .select('member_id, status')
-        
-        if (attendance) {
-            // Group by member
-            const summaryMap: Record<string, { total: number, present: number }> = {}
-            attendance.forEach(a => {
-                if (!summaryMap[a.member_id]) summaryMap[a.member_id] = { total: 0, present: 0 }
-                summaryMap[a.member_id].total++
-                if (a.status === 'present') summaryMap[a.member_id].present++
-            })
-
-            // Map back to member details
-            const summary = members.map(m => {
-                const stats = summaryMap[m.id] || { total: 0, present: 0 }
-                return {
-                    ...m,
-                    total: stats.total,
-                    present: stats.present,
-                    rate: stats.total > 0 ? (stats.present / stats.total) * 100 : 0
-                }
-            })
-            
-            summary.sort((a, b) => b.rate - a.rate)
-            setMemberSummaryData(summary)
+        let sessionQuery = supabase.from('attendance_sessions').select('id')
+        if (type === 'month') {
+            const startDate = new Date(year, month, 1).toISOString();
+            const endDate = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+            sessionQuery = sessionQuery.gte('event_date', startDate).lte('event_date', endDate);
+        } else if (type === 'quarter') {
+            const startMonth = (quarter - 1) * 3;
+            const startDate = new Date(year, startMonth, 1).toISOString();
+            const endDate = new Date(year, startMonth + 3, 0, 23, 59, 59).toISOString();
+            sessionQuery = sessionQuery.gte('event_date', startDate).lte('event_date', endDate);
         }
+
+        const { data: validSessions } = await sessionQuery;
+        const validSessionIds = validSessions ? validSessions.map((s: any) => s.id) : [];
+
+        let attendanceData: any[] = [];
+        if (type !== 'all' && validSessionIds.length === 0) {
+            attendanceData = []; // no sessions in period
+        } else if (type !== 'all') {
+            const { data } = await supabase.from('attendance_session_members')
+                .select('member_id, status')
+                .in('session_id', validSessionIds);
+            attendanceData = data || [];
+        } else {
+            const { data } = await supabase.from('attendance_session_members')
+                .select('member_id, status');
+            attendanceData = data || [];
+        }
+
+        const summaryMap: Record<string, { total: number, present: number }> = {}
+        attendanceData.forEach(a => {
+            if (!summaryMap[a.member_id]) summaryMap[a.member_id] = { total: 0, present: 0 }
+            summaryMap[a.member_id].total++
+            if (a.status === 'present') summaryMap[a.member_id].present++
+        })
+
+        const summary = members.map(m => {
+            const stats = summaryMap[m.id] || { total: 0, present: 0 }
+            return {
+                ...m,
+                total: stats.total,
+                present: stats.present,
+                rate: stats.total > 0 ? (stats.present / stats.total) * 100 : 0
+            }
+        })
+        
+        summary.sort((a, b) => b.rate - a.rate)
+        setMemberSummaryData(summary)
         setSummaryLoading(false)
     }
 
@@ -282,6 +321,16 @@ export default function AttendancePage() {
         present: '#16a34a', absent: '#dc2626', excused: '#2563eb', pending: '#f59e0b', alpa: '#991b1b',
     }
 
+    const filteredSessions = sessions.filter(s => {
+        const matchSearch = s.title?.toLowerCase().includes(searchTerm.toLowerCase()) || s.description?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchCategory = filterCategory 
+            ? (['meeting', 'activity', 'event'].includes(filterCategory) 
+                ? (s.source_type === 'timeline' && s._timeline_type === filterCategory) 
+                : s.source_type === filterCategory)
+            : true;
+        return matchSearch && matchCategory;
+    });
+
     return (
         <div>
             <div className="topbar"><div className="topbar-title">Kehadiran & Event</div></div>
@@ -290,13 +339,34 @@ export default function AttendancePage() {
                 <p className="page-subtitle">Generate sesi kehadiran dari timeline, program kerja, atau undangan</p>
 
                 <div className="toolbar">
-                    <div className="toolbar-left">
+                    <div className="toolbar-left" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                            {sessions.length} sesi kehadiran
+                            {filteredSessions.length} sesi kehadiran
                         </span>
+                        <input 
+                            className="form-input" 
+                            placeholder="Cari sesi..." 
+                            style={{ padding: '0.4rem 0.8rem', width: '200px' }} 
+                            value={searchTerm} 
+                            onChange={e => setSearchTerm(e.target.value)} 
+                        />
+                        <select 
+                            className="form-select" 
+                            style={{ padding: '0.4rem 0.8rem', width: 'auto' }} 
+                            value={filterCategory} 
+                            onChange={e => setFilterCategory(e.target.value)}
+                        >
+                            <option value="">Semua Kategori</option>
+                            <option value="timeline">Timeline</option>
+                            <option value="program">Program Kerja</option>
+                            <option value="invitation">Undangan</option>
+                            <option value="meeting">Rapat (Timeline)</option>
+                            <option value="activity">Kegiatan (Timeline)</option>
+                            <option value="event">Event (Timeline)</option>
+                        </select>
                     </div>
                     <div className="toolbar-right">
-                        <button className="btn btn-secondary" onClick={loadMemberSummary}>
+                        <button className="btn btn-secondary" onClick={() => loadMemberSummary()}>
                             <BarChart3 size={16} /> Rekap Anggota
                         </button>
                         {canCreate && (
@@ -310,11 +380,11 @@ export default function AttendancePage() {
                 {/* Session Cards */}
                 {loading ? (
                     <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>Memuat...</div>
-                ) : sessions.length === 0 ? (
-                    <div className="card"><div className="empty-state"><CalendarCheck size={48} /><h3>Belum ada sesi kehadiran</h3><p>Klik &quot;Generate Kehadiran&quot; untuk membuat sesi baru dari daftar kegiatan.</p></div></div>
+                ) : filteredSessions.length === 0 ? (
+                    <div className="card"><div className="empty-state"><CalendarCheck size={48} /><h3>Belum ada sesi kehadiran</h3><p>Klik &quot;Generate Kehadiran&quot; untuk membuat sesi baru dari daftar kegiatan, atau sesuaikan filter pencarian.</p></div></div>
                 ) : (
                     <div className="cards-grid">
-                        {sessions.map((s: any) => {
+                        {filteredSessions.map((s: any) => {
                             const rate = s._total > 0 ? ((s._present / s._total) * 100) : 0
                             const isExpired = s.deadline && new Date() > new Date(s.deadline)
                             return (
@@ -453,8 +523,19 @@ export default function AttendancePage() {
                                             <CheckSquare size={14} /> {selectedMembers.length === members.length ? 'Hapus Semua' : 'Pilih Semua'}
                                         </button>
                                     </div>
+                                    <input 
+                                        className="form-input" 
+                                        placeholder="Cari nama, bidang, atau role..." 
+                                        value={memberSearchTerm}
+                                        onChange={e => setMemberSearchTerm(e.target.value)}
+                                        style={{ marginBottom: '0.75rem' }}
+                                    />
                                     <div style={{ maxHeight: 350, overflowY: 'auto', border: '1px solid var(--color-border-primary)', borderRadius: 8, padding: '0.5rem' }}>
-                                        {members.map((m: any) => {
+                                        {members.filter(m => 
+                                            m.full_name?.toLowerCase().includes(memberSearchTerm.toLowerCase()) || 
+                                            m.department?.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
+                                            m.role?.toLowerCase().includes(memberSearchTerm.toLowerCase())
+                                        ).map((m: any) => {
                                             const selected = selectedMembers.find(sm => sm.id === m.id)
                                             return (
                                                 <div key={m.id} style={{
@@ -547,6 +628,7 @@ export default function AttendancePage() {
                                                             {m.member?.full_name || m.external_name}
                                                             {m.is_external && <span className="badge badge-secondary" style={{ fontSize: '0.625rem', marginLeft: 6 }}>EKSTERNAL</span>}
                                                             <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{m.member?.department || m.external_org || '-'}</div>
+                                                            {m.is_external && m.external_phone && <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{m.external_phone}</div>}
                                                         </td>
                                                         <td>
                                                             <span className={`badge ${m.role_type === 'Panitia' ? 'badge-primary' : 'badge-ghost'}`} style={{ fontSize: '0.625rem' }}>
@@ -588,19 +670,64 @@ export default function AttendancePage() {
                 {/* Member Summary Modal */}
                 {showMemberSummary && (
                     <div className="modal-overlay" onClick={() => setShowMemberSummary(false)}>
-                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 800 }}>
-                            <div className="modal-header">
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, display: 'flex', flexDirection: 'column', maxHeight: '90vh', overflow: 'hidden' }}>
+                            <div className="modal-header" style={{ flexShrink: 0 }}>
                                 <div>
-                                    <h2 style={{ marginBottom: 4, fontSize: '1.25rem' }}>Rekap Kehadiran Anggota</h2>
-                                    <p style={{ fontSize: '0.8125rem', color: '#64748b' }}>Persentase kehadiran akumulatif dari seluruh kegiatan.</p>
-                                </div>
-                                <button className="btn btn-ghost btn-icon" onClick={() => setShowMemberSummary(false)}><X size={18} /></button>
-                            </div>
-                            <div className="modal-body">
+                                                    <h2 style={{ marginBottom: 4, fontSize: '1.25rem' }}>Rekap Kehadiran Anggota</h2>
+                                                    <p style={{ fontSize: '0.8125rem', color: '#64748b' }}>Persentase kehadiran anggota.</p>
+                                                </div>
+                                                <button className="btn btn-ghost btn-icon" onClick={() => setShowMemberSummary(false)}><X size={18} /></button>
+                                            </div>
+                                            <div style={{ padding: '0 1.5rem', marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
+                                                <select className="form-select" style={{ width: 'auto' }} value={summaryFilterType} onChange={e => {
+                                                    setSummaryFilterType(e.target.value as any);
+                                                    loadMemberSummary(e.target.value as any, summaryMonth, summaryYear, summaryQuarter);
+                                                }}>
+                                                    <option value="all">Semua Waktu</option>
+                                                    <option value="month">Per Bulan</option>
+                                                    <option value="quarter">Per Kuartal</option>
+                                                </select>
+                                                
+                                                {summaryFilterType === 'month' && (
+                                                    <select className="form-select" style={{ width: 'auto' }} value={summaryMonth} onChange={e => {
+                                                        const m = parseInt(e.target.value);
+                                                        setSummaryMonth(m);
+                                                        loadMemberSummary('month', m, summaryYear, summaryQuarter);
+                                                    }}>
+                                                        {['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'].map((m, i) => (
+                                                            <option key={i} value={i}>{m}</option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                                
+                                                {summaryFilterType === 'quarter' && (
+                                                    <select className="form-select" style={{ width: 'auto' }} value={summaryQuarter} onChange={e => {
+                                                        const q = parseInt(e.target.value);
+                                                        setSummaryQuarter(q);
+                                                        loadMemberSummary('quarter', summaryMonth, summaryYear, q);
+                                                    }}>
+                                                        <option value={1}>Q1</option>
+                                                        <option value={2}>Q2</option>
+                                                        <option value={3}>Q3</option>
+                                                        <option value={4}>Q4</option>
+                                                    </select>
+                                                )}
+
+                                                {(summaryFilterType === 'month' || summaryFilterType === 'quarter') && (
+                                                    <select className="form-select" style={{ width: 'auto' }} value={summaryYear} onChange={e => {
+                                                        const y = parseInt(e.target.value);
+                                                        setSummaryYear(y);
+                                                        loadMemberSummary(summaryFilterType, summaryMonth, y, summaryQuarter);
+                                                    }}>
+                                                        {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                                                    </select>
+                                                )}
+                                            </div>
+                                            <div className="modal-body" style={{ paddingTop: 0, flex: 1, overflowY: 'auto' }}>
                                 {summaryLoading ? (
                                     <p style={{ textAlign: 'center', padding: '2rem' }}>Menghitung rekap...</p>
                                 ) : (
-                                    <div className="data-table-container" style={{ maxHeight: 500 }}>
+                                    <div className="data-table-container">
                                         <table className="data-table">
                                             <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'white' }}>
                                                 <tr>
@@ -636,10 +763,18 @@ export default function AttendancePage() {
                                     </div>
                                 )}
                             </div>
-                            <div className="modal-footer" style={{ flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
-                                <button className="btn btn-primary" onClick={() => exportToPdf({ 
+                            <div className="modal-footer" style={{ flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch', position: 'sticky', bottom: 0, zIndex: 10, background: 'white', borderTop: '1px solid var(--color-border-primary)', padding: '1rem 1.5rem', boxShadow: '0 -4px 12px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+                                <button className="btn btn-primary" onClick={() => {
+                                    let periodStr = 'Semua Waktu'
+                                    if (summaryFilterType === 'month') {
+                                        const m = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][summaryMonth]
+                                        periodStr = `${m} ${summaryYear}`
+                                    } else if (summaryFilterType === 'quarter') {
+                                        periodStr = `Q${summaryQuarter} ${summaryYear}`
+                                    }
+                                    exportToPdf({ 
                                     title: 'Laporan Rekap Kehadiran Anggota CSC', 
-                                    subtitle: `Dicetak pada ${new Date().toLocaleDateString('id-ID')}`,
+                                    subtitle: `Periode: ${periodStr} | Dicetak pada ${new Date().toLocaleDateString('id-ID')}`,
                                     columns: [
                                         { header: 'Nama', key: 'full_name' },
                                         { header: 'Bidang', key: 'department' },
@@ -648,7 +783,8 @@ export default function AttendancePage() {
                                         { header: 'Rate (%)', key: 'rate' }
                                     ],
                                     data: memberSummaryData.map(m => ({ ...m, rate: m.rate.toFixed(1) }))
-                                })}>
+                                    })
+                                }}>
                                     <FileText size={14} /> Export PDF
                                 </button>
                                 <button className="btn btn-secondary" onClick={() => setShowMemberSummary(false)}>Tutup</button>

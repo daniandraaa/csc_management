@@ -17,14 +17,24 @@ export default function OrderMonitoringPublicPage() {
     useEffect(() => {
         async function loadPublicOrders() {
             setLoading(true)
-            // Fetch some recent public orders to show activity (anonymized)
-            const { data } = await supabase
-                .from('external_orders')
-                .select('project_title, status, created_at')
-                .order('created_at', { ascending: false })
-                .limit(5)
-            
-            setOrders(data || [])
+            try {
+                // Fetch some recent public orders to show activity (anonymized)
+                const { data, error } = await supabase
+                    .from('external_orders')
+                    .select('project_title, status, created_at')
+                    .order('created_at', { ascending: false })
+                    .limit(5)
+                
+                if (error) {
+                    console.error('Order monitoring error:', error)
+                    setOrders([])
+                } else {
+                    setOrders(data || [])
+                }
+            } catch (err) {
+                console.error('Failed to load orders:', err)
+                setOrders([])
+            }
             setLoading(false)
         }
         loadPublicOrders()
@@ -38,16 +48,21 @@ export default function OrderMonitoringPublicPage() {
         setError('')
         setSelectedOrder(null)
 
-        const { data, error: fetchError } = await supabase
-            .from('external_orders')
-            .select('*')
-            .eq('tracking_code', trackingCode.trim().toUpperCase())
-            .single()
+        try {
+            const { data, error: fetchError } = await supabase
+                .from('external_orders')
+                .select('*')
+                .eq('tracking_code', trackingCode.trim().toUpperCase())
+                .single()
 
-        if (fetchError || !data) {
-            setError('Pesanan tidak ditemukan. Periksa kembali kode resi Anda.')
-        } else {
-            setSelectedOrder(data)
+            if (fetchError || !data) {
+                setError('Pesanan tidak ditemukan. Periksa kembali kode resi Anda.')
+            } else {
+                setSelectedOrder(data)
+            }
+        } catch (err) {
+            console.error('Error searching orders:', err)
+            setError('Terjadi kesalahan saat mencari pesanan. Coba lagi nanti.')
         }
         
         setSearching(false)

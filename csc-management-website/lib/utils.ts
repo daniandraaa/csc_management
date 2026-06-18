@@ -126,3 +126,26 @@ export function getStatusLabel(status: string): string {
     }
     return labels[status] || status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
 }
+
+export function calculateKasFine(monthStr: string, paymentDate?: string): number {
+    const [year, month] = monthStr.split('-').map(Number);
+    // If we have a payment date, calculate fine up to that date, else up to today
+    const targetDate = paymentDate ? new Date(paymentDate) : new Date();
+    
+    const kasYearMonth = year * 12 + month;
+    const targetYearMonth = targetDate.getFullYear() * 12 + (targetDate.getMonth() + 1);
+    
+    if (targetYearMonth < kasYearMonth) return 0;
+    
+    if (targetYearMonth === kasYearMonth) {
+        const targetDay = targetDate.getDate();
+        if (targetDay >= 17) {
+            return (targetDay - 16) * 1000;
+        }
+        return 0;
+    }
+    
+    // Past the kas month: maximum fine is until the end of the kas month
+    const lastDay = new Date(year, month, 0).getDate();
+    return (lastDay - 16) * 1000;
+}

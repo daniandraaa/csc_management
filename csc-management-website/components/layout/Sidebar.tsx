@@ -14,7 +14,7 @@ import {
     BarChart3, ClipboardCheck, FileText, Receipt, DollarSign,
     Handshake, Building2, Megaphone, PenTool, Newspaper,
     UserCheck, FileStack, ShieldCheck, LogOut, Shield,
-    KeyRound, X, Eye, EyeOff, MessageCircle, Send, ClipboardList, Menu, Bell, Mail, Settings, Package, UserPlus
+    KeyRound, X, Eye, EyeOff, MessageCircle, Send, ClipboardList, Menu, Bell, Mail, Settings, Package, UserPlus, Bot
 } from 'lucide-react'
 
 const navSections = [
@@ -27,8 +27,7 @@ const navSections = [
             { label: 'SOP Guide', href: '/overview/sop', icon: FileText },
             { label: 'Logbook', href: '/overview/logbook', icon: BookOpen },
             { label: 'Performansi', href: '/overview/performance', icon: Trophy },
-            { label: 'Evaluasi Program', href: '/overview/evaluations', icon: ClipboardCheck },
-            { label: 'KPI Program', href: '/overview/kpi', icon: BarChart3 },
+            { label: 'KPI & Evaluasi', href: '/overview/kpi', icon: BarChart3 },
             { label: 'Ajukan Konten', href: '/overview/content-request', icon: Send, badgeKey: 'content' },
             { label: 'Ajukan ke PR', href: '/overview/pr-request', icon: UserCheck, badgeKey: 'pr_request' },
             { label: 'Reimbursement Saya', href: '/finance/reimbursement', icon: Receipt, badgeKey: 'reimbursement' },
@@ -52,13 +51,12 @@ const navSections = [
         items: [
             { label: 'Program Kerja', href: '/operating/programs', icon: FolderKanban },
             { label: 'Penjadwalan Broadcast', href: '/operating/broadcasts', icon: Megaphone },
-            { label: 'Editorial Plan', href: '/operating/editorial', icon: PenTool },
             { label: 'Direktori CP', href: '/operating/directory', icon: MessageCircle },
             { label: 'Order Monitoring', href: '/operating/orders', icon: ClipboardList, badgeKey: 'orders' },
             { label: 'Kelola Layanan', href: '/operating/services', icon: Package },
-            { label: 'KPI Program', href: '/operating/kpi', icon: BarChart3 },
-            { label: 'Evaluasi', href: '/operating/evaluations', icon: ClipboardCheck },
+            { label: 'KPI & Evaluasi', href: '/operating/kpi', icon: BarChart3 },
             { label: 'SOP Guide', href: '/operating/sop', icon: FileText },
+            { label: 'Kelola AI Chatbot', href: '/operating/ai-faq', icon: Bot },
         ],
     },
     {
@@ -90,7 +88,6 @@ const navSections = [
         items: [
             { label: 'Media Partner', href: '/marketing/media-partners', icon: Megaphone },
             { label: 'Database PR', href: '/documents?is_pr=true', icon: Newspaper },
-            { label: 'Surat Masuk', href: '/marketing/mail', icon: Mail },
             { label: 'Tamu Undangan', href: '/marketing/invitations', icon: UserCheck },
             { label: 'Jobdesk PR', href: '/marketing/pr-tasks', icon: ClipboardList, badgeKey: 'pr_jobdesk' },
         ],

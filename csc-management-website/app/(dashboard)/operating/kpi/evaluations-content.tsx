@@ -57,11 +57,7 @@ export default function EvaluationsPage() {
     const exportData = evals.map((ev: any) => ({ ...ev, _program: ev.program?.name || '-', _evaluator: ev.evaluator?.full_name || '-' }))
 
     return (
-        <div>
-            <div className="topbar"><div className="topbar-title">Evaluasi Program</div></div>
-            <div className="page-container">
-                <h1 className="page-title">Evaluasi Program Kerja</h1>
-                <p className="page-subtitle">Hasil evaluasi setiap program kerja</p>
+        <div style={{ padding: '0 2rem' }}>
                 <div className="toolbar">
                     <div className="toolbar-left" />
                     <div className="toolbar-right">
@@ -109,7 +105,6 @@ export default function EvaluationsPage() {
                         </div>
                     </div>
                 )}
-            </div>
         </div>
     )
 }

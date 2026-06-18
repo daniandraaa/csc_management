@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FileText as FileTextIcon } from 'lucide-react'
+import { FileText as FileTextIcon, MessageSquare } from 'lucide-react'
+import SopChatbot from '@/components/SopChatbot'
 
 export default function OverviewSOPPage() {
     const [sops, setSops] = useState<any[]>([])
@@ -10,6 +11,7 @@ export default function OverviewSOPPage() {
     const [loading, setLoading] = useState(true)
     const [filterDept, setFilterDept] = useState('')
     const [selectedSop, setSelectedSop] = useState<any>(null)
+    const [showChatbot, setShowChatbot] = useState(false)
 
     useEffect(() => { loadData() }, [])
 
@@ -58,10 +60,22 @@ export default function OverviewSOPPage() {
                     <div className="card">
                         {selectedSop ? (
                             <div>
-                                <div style={{ marginBottom: '1rem' }}>
-                                    <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>{selectedSop.title}</h2>
-                                    <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-tertiary)' }}>{selectedSop.department?.name} · Versi {selectedSop.version}</p>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                    <div>
+                                        <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>{selectedSop.title}</h2>
+                                        <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-tertiary)' }}>{selectedSop.department?.name} · Versi {selectedSop.version}</p>
+                                    </div>
+                                    <div>
+                                        <button className="btn btn-primary btn-sm" onClick={() => setShowChatbot(true)} style={{ background: 'var(--color-brand-600)' }}><MessageSquare size={14} /> Tanya AI</button>
+                                    </div>
                                 </div>
+                                {selectedSop.file_url && (
+                                    <div style={{ marginBottom: '1rem' }}>
+                                        <a href={selectedSop.file_url} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            <FileTextIcon size={14} /> Lihat Dokumen PDF
+                                        </a>
+                                    </div>
+                                )}
                                 <div style={{ fontSize: '0.9375rem', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{selectedSop.content}</div>
                             </div>
                         ) : (
@@ -70,6 +84,9 @@ export default function OverviewSOPPage() {
                     </div>
                 </div>
             </div>
+            {showChatbot && selectedSop && (
+                <SopChatbot sop={selectedSop} onClose={() => setShowChatbot(false)} />
+            )}
         </div>
     )
 }

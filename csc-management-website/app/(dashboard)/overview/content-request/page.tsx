@@ -14,7 +14,7 @@ export default function OverviewContentRequestPage() {
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
     const [submitted, setSubmitted] = useState(false)
-    const [form, setForm] = useState({ title: '', description: '', platform: '', content_type: 'post', deadline: '' })
+    const [form, setForm] = useState({ title: '', description: '', platform: '', content_type: 'post', deadline: '', category: 'Event' })
 
     useEffect(() => { if (currentUser) loadData() }, [currentUser])
 
@@ -62,12 +62,15 @@ export default function OverviewContentRequestPage() {
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
         await supabase.from('content_requests').insert({
-            ...form,
+            title: form.title,
+            description: `[Kategori: ${form.category}]\n\n${form.description}`,
+            platform: form.platform,
+            content_type: form.content_type,
             requester_id: currentUser?.id,
             deadline: form.deadline || null,
         })
         setShowModal(false)
-        setForm({ title: '', description: '', platform: '', content_type: 'post', deadline: '' })
+        setForm({ title: '', description: '', platform: '', content_type: 'post', deadline: '', category: 'Event' })
         setSubmitted(true)
         loadData()
         setTimeout(() => setSubmitted(false), 3000)
@@ -247,6 +250,13 @@ export default function OverviewContentRequestPage() {
                             <form onSubmit={handleSubmit}>
                                 <div className="modal-body">
                                     <div className="form-group"><label className="form-label">Judul Konten *</label><input className="form-input" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Judul konten yang diinginkan" /></div>
+                                    <div className="form-group">
+                                        <label className="form-label">Kategori Order</label>
+                                        <select className="form-select" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+                                            <option value="Event">Event</option>
+                                            <option value="Business">Business</option>
+                                        </select>
+                                    </div>
                                     <div className="form-group"><label className="form-label">Deskripsi *</label><textarea className="form-textarea" required style={{ minHeight: 100 }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Jelaskan detail konten yang diinginkan..." /></div>
                                     <div className="form-group" style={{ marginBottom: '1rem' }}>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>

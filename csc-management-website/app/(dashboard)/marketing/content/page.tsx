@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { getStatusColor, getStatusLabel, formatDateShort } from '@/lib/utils'
 import { useCurrentUser } from '@/lib/auth'
 import { canManageModule } from '@/lib/rbac'
-import { PenTool, Plus, X, Upload, FileText, Download, Inbox, CheckCircle2, XCircle, ChevronDown } from 'lucide-react'
+import { PenTool, Plus, X, Upload, FileText, Download, Inbox, CheckCircle2, XCircle, ChevronDown, Calendar as CalendarIcon, List, ChevronLeft, ChevronRight } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
 import { exportToPdf, exportToCsv } from '@/lib/export'
 
@@ -28,10 +28,8 @@ const PDF_COLUMNS = [
 export default function ContentPage() {
     const { currentUser } = useCurrentUser()
     const canManage = canManageModule(currentUser, 'content')
-    const [activeTab, setActiveTab] = useState<'plans' | 'requests'>('plans')
     const [plans, setPlans] = useState<any[]>([])
     const [members, setMembers] = useState<any[]>([])
-    const [requests, setRequests] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
     const [showCsvImport, setShowCsvImport] = useState(false)
@@ -39,6 +37,8 @@ export default function ContentPage() {
     const [editId, setEditId] = useState<string | null>(null)
     const [picSearch, setPicSearch] = useState('')
     const [showPicList, setShowPicList] = useState(false)
+    const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+    const [currentDate, setCurrentDate] = useState(new Date())
 
     useEffect(() => { loadData() }, [])
 
@@ -46,12 +46,8 @@ export default function ContentPage() {
         setLoading(true)
         const { data } = await supabase.from('content_plans').select('*, assignee:members!content_plans_assigned_to_fkey(full_name)').order('scheduled_date', { ascending: true })
         const { data: m } = await supabase.from('members').select('id,full_name').order('full_name')
-        const { data: reqs } = await supabase.from('content_requests')
-            .select('*, requester:members!content_requests_requester_id_fkey(full_name, department)')
-            .order('created_at', { ascending: false })
         setPlans(data || [])
         setMembers(m || [])
-        setRequests(reqs || [])
         setLoading(false)
     }
 
@@ -69,35 +65,6 @@ export default function ContentPage() {
 
     async function handleDelete(id: string) { if (confirm('Hapus?')) { await supabase.from('content_plans').delete().eq('id', id); loadData() } }
 
-    async function updateRequestStatus(id: string, status: string, notes?: string) {
-        const { error } = await supabase.from('content_requests').update({
-            status,
-            marketing_notes: notes || null,
-            handled_by: currentUser?.id,
-            updated_at: new Date().toISOString(),
-        }).eq('id', id)
-        
-        if (error) {
-            console.error('Update status error:', error)
-            alert(`Gagal update status: ${error.message}`)
-            return
-        }
-        loadData()
-    }
-
-    async function convertToContentPlan(req: any) {
-        await supabase.from('content_plans').insert({
-            title: req.title,
-            platform: req.platform || 'Instagram',
-            content_type: req.content_type || 'post',
-            description: req.description || null,
-            scheduled_date: req.deadline || null,
-            status: 'draft',
-        })
-        await updateRequestStatus(req.id, 'in_progress', 'Dikonversi menjadi content plan')
-        loadData()
-    }
-
     const platformColors: Record<string, string> = { Instagram: '#E1306C', TikTok: '#000', Twitter: '#1DA1F2', LinkedIn: '#0077B5', YouTube: '#FF0000' }
 
     const grouped = plans.reduce((acc: Record<string, any[]>, p) => {
@@ -107,49 +74,40 @@ export default function ContentPage() {
         return acc
     }, {})
 
-    const pendingRequests = requests.filter(r => r.status === 'pending').length
+    const filteredMembers = members.filter(m => m.full_name.toLowerCase().includes(picSearch.toLowerCase()))
 
-    const reqStatusStyles: Record<string, { bg: string; text: string; label: string }> = {
-        pending: { bg: '#fef3c7', text: '#92400e', label: 'Menunggu' },
-        in_progress: { bg: '#dbeafe', text: '#1e40af', label: 'Diproses' },
-        completed: { bg: '#dcfce7', text: '#166534', label: 'Selesai' },
-        rejected: { bg: '#fee2e2', text: '#991b1b', label: 'Ditolak' },
+    // Calendar logic
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const firstDay = new Date(year, month, 1).getDay()
+
+    const calendarDays = []
+    for (let i = 0; i < firstDay; i++) {
+        calendarDays.push(null)
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+        calendarDays.push(i)
     }
 
-    const filteredMembers = members.filter(m => m.full_name.toLowerCase().includes(picSearch.toLowerCase()))
+    const currentMonthStr = `${year}-${(month + 1).toString().padStart(2, '0')}`
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
 
     return (
         <div>
             <div className="topbar"><div className="topbar-title">Content Planner</div></div>
             <div className="page-container">
                 <h1 className="page-title">Content Planner</h1>
-                <p className="page-subtitle">Kelola jadwal konten media sosial dan permintaan konten</p>
+                <p className="page-subtitle">Kelola jadwal konten media sosial</p>
 
-                {/* Tabs */}
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', borderBottom: '1px solid var(--color-border-primary)', paddingBottom: '1rem' }}>
-                    <button className={`btn ${activeTab === 'plans' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setActiveTab('plans')} style={{ borderRadius: 8, padding: '0.625rem 1.25rem' }}>
-                        <PenTool size={16} /> <span style={{ marginLeft: 8 }}>Content Plan</span>
-                    </button>
-                    <button className={`btn ${activeTab === 'requests' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setActiveTab('requests')} style={{ position: 'relative', borderRadius: 8, padding: '0.625rem 1.25rem' }}>
-                        <Inbox size={16} /> <span style={{ marginLeft: 8 }}>Permintaan Konten</span>
-                        {pendingRequests > 0 && (
-                            <span style={{
-                                position: 'absolute', top: -4, right: -4,
-                                background: 'var(--color-danger)', color: 'white',
-                                borderRadius: '50%', minWidth: 18, height: 18,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '0.625rem', fontWeight: 700, padding: '0 4px',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                            }}>{pendingRequests}</span>
-                        )}
-                    </button>
-                </div>
-
-                {activeTab === 'plans' ? (
-                    <>
-                        <div className="toolbar">
-                            <div className="toolbar-left" />
-                            <div className="toolbar-right">
+                <div className="toolbar" style={{ marginBottom: '1.5rem', background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '1rem', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div className="toolbar-left" style={{ display: 'flex', gap: '0.5rem' }}>
+                                <div style={{ display: 'flex', background: 'var(--bg-primary)', padding: '0.25rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
+                                    <button className={`btn ${viewMode === 'list' ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', height: 'auto', fontSize: '0.875rem' }} onClick={() => setViewMode('list')}><List size={16} /> List</button>
+                                    <button className={`btn ${viewMode === 'calendar' ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', height: 'auto', fontSize: '0.875rem' }} onClick={() => setViewMode('calendar')}><CalendarIcon size={16} /> Kalender</button>
+                                </div>
+                            </div>
+                            <div className="toolbar-right" style={{ gap: '0.5rem' }}>
                                 <button className="btn btn-secondary btn-sm" onClick={() => setShowCsvImport(true)}><Upload size={14} /> Import CSV</button>
                                 <button className="btn btn-secondary btn-sm" onClick={() => exportToCsv(PDF_COLUMNS, plans, `CSC_Content_${new Date().toISOString().split('T')[0]}.csv`)}><Download size={14} /> CSV</button>
                                 <button className="btn btn-secondary btn-sm" onClick={() => exportToPdf({ title: 'Content Plan CSC', subtitle: `Total: ${plans.length} konten`, columns: PDF_COLUMNS, data: plans })}><FileText size={14} /> Export PDF</button>
@@ -157,16 +115,30 @@ export default function ContentPage() {
                             </div>
                         </div>
 
-                        {loading ? <div style={{ textAlign: 'center', padding: '4rem' }}><div className="loading-spinner" /> <p style={{ marginTop: 12, color: 'var(--color-text-tertiary)' }}>Memuat data...</p></div> : Object.keys(grouped).length === 0 ? <div className="card"><div className="empty-state" style={{ padding: '4rem 2rem' }}><div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--color-surface-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><PenTool size={32} style={{ color: 'var(--color-text-tertiary)' }} /></div><h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Belum ada konten</h3><p style={{ color: 'var(--color-text-tertiary)', maxWidth: 300, margin: '8px auto' }}>Mulai buat perencanaan konten Anda atau impor dari file CSV.</p></div></div> :
-                            Object.entries(grouped).map(([date, items]) => (
+                        {loading ? <div style={{ textAlign: 'center', padding: '4rem' }}><div className="loading-spinner" /> <p style={{ marginTop: 12, color: 'var(--color-text-tertiary)' }}>Memuat data...</p></div> : 
+                            viewMode === 'list' ? (
+                                Object.keys(grouped).length === 0 ? <div className="card"><div className="empty-state" style={{ padding: '4rem 2rem' }}><div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--color-surface-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><PenTool size={32} style={{ color: 'var(--color-text-tertiary)' }} /></div><h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Belum ada konten</h3><p style={{ color: 'var(--color-text-tertiary)', maxWidth: 300, margin: '8px auto' }}>Mulai buat perencanaan konten Anda atau impor dari file CSV.</p></div></div> :
+                                Object.entries(grouped).map(([date, items]) => (
                                 <div key={date} style={{ marginBottom: '2.5rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1rem' }}>
                                         <div style={{ padding: '4px 12px', background: 'var(--color-brand-50)', color: 'var(--color-brand-600)', borderRadius: 6, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                                             {date === 'Tidak Terjadwal' ? 'Draft' : 'Jadwal'}
                                         </div>
-                                        <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                                            {date === 'Tidak Terjadwal' ? date : formatDateShort(date)}
-                                        </h3>
+                                        {date === 'Tidak Terjadwal' ? (
+                                            <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>{date}</h3>
+                                        ) : (
+                                            <button 
+                                                className="btn btn-ghost"
+                                                style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-brand-600)', padding: '0 4px', height: 'auto', textDecoration: 'underline' }}
+                                                onClick={() => {
+                                                    const d = new Date(date)
+                                                    setCurrentDate(new Date(d.getFullYear(), d.getMonth(), 1))
+                                                    setViewMode('calendar')
+                                                }}
+                                            >
+                                                {formatDateShort(date)}
+                                            </button>
+                                        )}
                                         <div style={{ flex: 1, height: 1, background: 'var(--color-border-primary)' }} />
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
@@ -204,94 +176,64 @@ export default function ContentPage() {
                                     </div>
                                 </div>
                             ))
-                        }
-                    </>
-                ) : (
-                    /* Content Requests Tab */
-                    <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--color-border-primary)' }}>
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th style={{ paddingLeft: '1.25rem' }}>Konten</th>
-                                    <th>Pengaju</th>
-                                    <th>Platform</th>
-                                    <th>Tipe</th>
-                                    <th>Deadline</th>
-                                    <th>Status</th>
-                                    <th style={{ paddingRight: '1.25rem' }}>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {loading ? (
-                                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: '4rem' }}><div className="loading-spinner" /><p style={{ marginTop: 12, color: 'var(--color-text-tertiary)' }}>Memuat permintaan...</p></td></tr>
-                                ) : requests.length === 0 ? (
-                                    <tr><td colSpan={7}><div className="empty-state" style={{ padding: '4rem 2rem' }}><div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--color-surface-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Inbox size={32} style={{ color: 'var(--color-text-tertiary)' }} /></div><h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Belum ada permintaan</h3><p style={{ color: 'var(--color-text-tertiary)', maxWidth: 300, margin: '8px auto' }}>Permintaan konten dari departemen lain akan muncul di sini.</p></div></td></tr>
-                                ) : requests.map((r: any) => {
-                                    const st = reqStatusStyles[r.status] || reqStatusStyles.pending
-                                    return (
-                                        <tr key={r.id}>
-                                            <td style={{ paddingLeft: '1.25rem' }}>
-                                                <div style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{r.title}</div>
-                                                {r.description && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{r.description}</div>}
-                                            </td>
-                                            <td>
-                                                <div style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{r.requester?.full_name || 'Unknown'}</div>
-                                                <div style={{ color: 'var(--color-text-tertiary)', fontSize: '0.75rem' }}>{r.requester?.department}</div>
-                                            </td>
-                                            <td>
-                                                <span style={{ fontSize: '0.8125rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>{r.platform || 'General'}</span>
-                                            </td>
-                                            <td><span className="badge badge-default" style={{ fontSize: '0.6875rem' }}>{r.content_type}</span></td>
-                                            <td style={{ whiteSpace: 'nowrap', fontSize: '0.8125rem' }}>{r.deadline ? formatDateShort(r.deadline) : 'No Deadline'}</td>
-                                            <td>
-                                                <span style={{
-                                                    display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 12,
-                                                    fontSize: '0.6875rem', fontWeight: 600, background: st.bg, color: st.text,
-                                                }}>{st.label}</span>
-                                            </td>
-                                            <td style={{ paddingRight: '1.25rem' }}>
-                                                {canManage ? (
-                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                        {r.status === 'pending' && (
-                                                            <>
-                                                                <button className="btn btn-primary btn-sm" style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }} onClick={() => convertToContentPlan(r)}>
-                                                                    <CheckCircle2 size={12} /> Terima
-                                                                </button>
-                                                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)', padding: '4px 8px', height: 28 }} onClick={() => updateRequestStatus(r.id, 'rejected')}>
-                                                                    <XCircle size={12} />
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                        {r.status === 'in_progress' && (
-                                                            <button className="btn btn-secondary btn-sm" style={{ height: 28, fontSize: '0.75rem' }} onClick={() => updateRequestStatus(r.id, 'completed', 'Konten selesai')}>
-                                                                Selesai
-                                                            </button>
-                                                        )}
-                                                        {['completed', 'rejected'].includes(r.status) && (
-                                                            <select 
-                                                                className="form-select" 
-                                                                style={{ width: 'auto', fontSize: '0.75rem', height: 28, padding: '0 8px' }}
-                                                                value={r.status}
-                                                                onChange={(e) => updateRequestStatus(r.id, e.target.value)}
-                                                            >
-                                                                <option value="pending">Pending</option>
-                                                                <option value="in_progress">In Progress</option>
-                                                                <option value="completed">Completed</option>
-                                                                <option value="rejected">Rejected</option>
-                                                            </select>
-                                                        )}
+                        ) : (
+                            <div className="card" style={{ padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>{monthNames[month]} {year}</h3>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <button className="btn btn-secondary btn-icon" onClick={() => setCurrentDate(new Date(year, month - 1, 1))}><ChevronLeft size={18} /></button>
+                                        <button className="btn btn-secondary" onClick={() => setCurrentDate(new Date())}>Bulan Ini</button>
+                                        <button className="btn btn-secondary btn-icon" onClick={() => setCurrentDate(new Date(year, month + 1, 1))}><ChevronRight size={18} /></button>
+                                    </div>
+                                </div>
+                                <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '1rem', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
+                                        {['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'].map(day => (
+                                            <div key={day} style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{day}</div>
+                                        ))}
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--border-color)', gap: '1px' }}>
+                                        {calendarDays.map((day, idx) => {
+                                            if (day === null) return <div key={`empty-${idx}`} style={{ background: '#fafafa', minHeight: '120px' }} />
+                                            const dateStr = `${currentMonthStr}-${day.toString().padStart(2, '0')}`
+                                            const dayPlans = plans.filter(p => p.scheduled_date === dateStr)
+                                            const isToday = new Date().toISOString().split('T')[0] === dateStr
+                                            
+                                            return (
+                                                <div key={`day-${day}`} style={{ background: isToday ? '#f0fdf4' : 'var(--bg-primary)', minHeight: '140px', padding: '0.5rem', transition: 'background 0.2s', position: 'relative' }}>
+                                                    <div style={{ 
+                                                        display: 'flex', justifyContent: 'center', alignItems: 'center',
+                                                        width: '28px', height: '28px', 
+                                                        margin: '0 auto 0.5rem auto',
+                                                        borderRadius: '50%',
+                                                        fontWeight: isToday ? 700 : 500, 
+                                                        fontSize: '0.875rem',
+                                                        color: isToday ? '#16a34a' : 'var(--text-primary)',
+                                                        background: isToday ? '#dcfce7' : 'transparent',
+                                                    }}>
+                                                        {day}
                                                     </div>
-                                                ) : (
-                                                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>View Only</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    )
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                        {dayPlans.map(p => (
+                                                            <div key={p.id} className="hover-card" style={{ 
+                                                                fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer',
+                                                                background: platformColors[p.platform] ? `${platformColors[p.platform]}15` : 'var(--bg-secondary)',
+                                                                color: platformColors[p.platform] || 'var(--text-primary)',
+                                                                fontWeight: 500,
+                                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                                transition: 'all 0.15s ease'
+                                                            }} onClick={() => { setForm({ title: p.title, platform: p.platform, content_type: p.content_type, description: p.description || '', scheduled_date: p.scheduled_date || '', status: p.status, assigned_to: p.assigned_to || '', content_url: p.content_url || '', notes: p.notes || '' }); setEditId(p.id); setPicSearch(p.assignee?.full_name || ''); setShowModal(true) }}>
+                                                                {p.title}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                 <CsvImportModal isOpen={showCsvImport} onClose={() => { setShowCsvImport(false); loadData() }} onImport={handleCsvImport}
                     columns={CSV_COLUMNS} existingData={plans} matchFields={['title', 'platform']} title="Import Content Plan" />

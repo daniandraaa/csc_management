@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency, formatDateShort } from '@/lib/utils'
-import { DollarSign, Plus, X, Search, Filter, Download, FileText } from 'lucide-react'
+import { formatCurrency, formatDateShort, calculateKasFine } from '@/lib/utils'
+import { DollarSign, Plus, X, Search, Filter, Download, FileText, AlertTriangle, Upload } from 'lucide-react'
 import { exportToPdf, exportToCsv } from '@/lib/export'
+import CsvImportModal from '@/components/CsvImportModal'
 
 const MONTHS = [
     { label: 'Semua Bulan', value: 'all' },
@@ -33,6 +34,7 @@ export default function KasManagementPage() {
     const [filterYear, setFilterYear] = useState('all')
     const [searchTerm, setSearchTerm] = useState('')
     const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all')
+    const [showCsvImport, setShowCsvImport] = useState(false)
     
     const [form, setForm] = useState({ 
         member_id: '', 
@@ -161,6 +163,51 @@ export default function KasManagementPage() {
         i.member?.nim?.includes(searchTerm)
     )
 
+    async function handleCsvImport(rows: Record<string, string>[]) {
+        for (const row of rows) {
+            const member = members.find(m => 
+                m.full_name.toLowerCase() === (row.member_name || '').toLowerCase()
+            )
+            if (member) {
+                // If paid, create tx
+                let txId = null
+                if (row.status === 'paid' || !row.status) {
+                    const txPayload = {
+                        type: 'income',
+                        category: 'Kas Anggota',
+                        description: `Kas Anggota (Import): ${member.full_name} - ${(row.month || form.month).substring(0, 7)}`,
+                        amount: parseFloat(row.amount) || 25000,
+                        transaction_date: row.payment_date || new Date().toISOString().split('T')[0],
+                        member_id: member.id
+                    }
+                    const { data: txData } = await supabase.from('financial_transactions').insert(txPayload).select().single()
+                    txId = txData?.id
+                }
+
+                await supabase.from('member_kas').insert({
+                    member_id: member.id,
+                    month: row.month ? `${row.month}-01` : form.month,
+                    amount_paid: parseFloat(row.amount) || 25000,
+                    status: row.status || 'paid',
+                    payment_date: row.payment_date || new Date().toISOString().split('T')[0],
+                    notes: row.notes || null,
+                    transaction_id: txId
+                })
+            }
+        }
+        loadData()
+        setShowCsvImport(false)
+    }
+
+    const KAS_CSV_COLUMNS = [
+        { key: 'member_name', label: 'Nama Anggota', required: true },
+        { key: 'month', label: 'Bulan (YYYY-MM)', required: true },
+        { key: 'amount', label: 'Jumlah (Rp)', required: true },
+        { key: 'payment_date', label: 'Tanggal Bayar' },
+        { key: 'status', label: 'Status (paid/pending)' },
+        { key: 'notes', label: 'Catatan' },
+    ]
+
     // Members who haven't fully paid this month
     const memberPaidTotals = items.reduce((acc, i) => {
         if (i.status === 'paid') acc[i.member_id] = (acc[i.member_id] || 0) + i.amount_paid
@@ -279,6 +326,9 @@ export default function KasManagementPage() {
                                 data: pdfData
                             })
                         }}><FileText size={16} /> Export PDF</button>
+                        <button className="btn btn-secondary" style={{ borderRadius: '0.75rem' }} onClick={() => setShowCsvImport(true)}>
+                            <Upload size={16} /> Import CSV
+                        </button>
                         <button className="btn btn-primary" style={{ borderRadius: '0.75rem' }} onClick={() => { 
                             setEditId(null); 
                             setForm({ 
@@ -412,7 +462,9 @@ export default function KasManagementPage() {
                                     <label className="form-label">Anggota *</label>
                                     <select className="form-select" required value={form.member_id} onChange={e => {
                                         const m = members.find(mem => mem.id === e.target.value)
-                                        setForm({ ...form, member_id: e.target.value, amount_paid: m?.kas_monthly_amount?.toString() || '20000' })
+                                        const baseAmount = m?.kas_monthly_amount || 25000
+                                        const fine = calculateKasFine(form.month, form.payment_date)
+                                        setForm({ ...form, member_id: e.target.value, amount_paid: (baseAmount + fine).toString() })
                                     }}>
                                         <option value="">Pilih Anggota</option>
                                         {members.map(m => <option key={m.id} value={m.id}>{m.full_name} ({m.nim})</option>)}
@@ -420,10 +472,22 @@ export default function KasManagementPage() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="form-group"><label className="form-label">Jumlah (Rp) *</label><input className="form-input" type="number" required value={form.amount_paid} onChange={e => setForm({ ...form, amount_paid: e.target.value })} /></div>
-                                    <div className="form-group"><label className="form-label">Tanggal Bayar</label><input className="form-input" type="date" value={form.payment_date} onChange={e => setForm({ ...form, payment_date: e.target.value })} /></div>
+                                    <div className="form-group"><label className="form-label">Tanggal Bayar</label><input className="form-input" type="date" value={form.payment_date} onChange={e => {
+                                        const newDate = e.target.value
+                                        const m = members.find(mem => mem.id === form.member_id)
+                                        const baseAmount = m?.kas_monthly_amount || 25000
+                                        const fine = calculateKasFine(form.month, newDate)
+                                        setForm({ ...form, payment_date: newDate, amount_paid: (baseAmount + fine).toString() })
+                                    }} /></div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="form-group"><label className="form-label">Bulan</label><input className="form-input" type="month" value={form.month.substring(0, 7)} onChange={e => setForm({ ...form, month: `${e.target.value}-01` })} /></div>
+                                    <div className="form-group"><label className="form-label">Bulan</label><input className="form-input" type="month" value={form.month.substring(0, 7)} onChange={e => {
+                                        const newMonth = `${e.target.value}-01`
+                                        const m = members.find(mem => mem.id === form.member_id)
+                                        const baseAmount = m?.kas_monthly_amount || 25000
+                                        const fine = calculateKasFine(newMonth, form.payment_date)
+                                        setForm({ ...form, month: newMonth, amount_paid: (baseAmount + fine).toString() })
+                                    }} /></div>
                                     <div className="form-group">
                                         <label className="form-label">Status</label>
                                         <select className="form-select" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
@@ -444,6 +508,16 @@ export default function KasManagementPage() {
                         </div>
                     </div>
                 )}
+
+                <CsvImportModal 
+                    isOpen={showCsvImport} 
+                    onClose={() => { setShowCsvImport(false); loadData() }} 
+                    onImport={handleCsvImport}
+                    columns={KAS_CSV_COLUMNS} 
+                    existingData={filtered.map(i => ({ member_name: i.member?.full_name, ...i }))} 
+                    matchFields={['member_name', 'month']} 
+                    title="Import Data Kas Anggota" 
+                />
             </div>
         </div>
     )

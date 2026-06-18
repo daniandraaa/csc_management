@@ -21,9 +21,12 @@ function ExternalCheckInContent() {
     const [step, setStep] = useState<'form' | 'scanner' | 'success'>('form')
     const [scannerActive, setScannerActive] = useState(false)
     const [processingFile, setProcessingFile] = useState(false)
+    const [scanError, setScanError] = useState<string | null>(null)
+    const [hasScanned, setHasScanned] = useState(false)
     
     // New fields
     const [userType, setUserType] = useState<'mahasiswa' | 'eksternal'>('mahasiswa')
+    const [phone, setPhone] = useState('')
     const [nim, setNim] = useState('')
     const [faculty, setFaculty] = useState('')
     const [major, setMajor] = useState('')
@@ -65,7 +68,7 @@ function ExternalCheckInContent() {
     useEffect(() => {
         let html5QrCode: Html5Qrcode | null = null;
 
-        if (step === 'scanner' && scannerActive && session) {
+        if (step === 'scanner' && scannerActive && session && !hasScanned) {
             html5QrCode = new Html5Qrcode("reader");
             
             const startScanner = async () => {
@@ -77,12 +80,27 @@ function ExternalCheckInContent() {
                             qrbox: { width: 250, height: 250 },
                         },
                         (decodedText) => {
+                            let isValid = false
                             if (decodedText === session.qr_token) {
+                                isValid = true
+                            } else if (decodedText.includes('sessionId=')) {
+                                try {
+                                    const url = new URL(decodedText)
+                                    const sId = url.searchParams.get('sessionId')
+                                    if (sId === session.id) isValid = true
+                                } catch (e) {
+                                    // ignore parse error
+                                }
+                            }
+
+                            if (isValid) {
+                                setHasScanned(true);
+                                setScanError(null);
                                 html5QrCode?.stop().then(() => {
                                     submitCheckIn();
-                                }).catch(err => console.error(err));
+                                }).catch(err => console.error("Error stopping scanner:", err));
                             } else {
-                                alert("QR Code tidak valid untuk sesi ini. Pastikan Anda melakukan scan pada QR yang disediakan panitia.");
+                                setScanError("QR Code tidak valid untuk sesi ini.");
                             }
                         },
                         (errorMessage) => {
@@ -91,7 +109,7 @@ function ExternalCheckInContent() {
                     );
                 } catch (err) {
                     console.error("Gagal memulai scanner:", err);
-                    alert("Tidak dapat mengakses kamera. Pastikan Anda memberikan izin kamera dan menggunakan koneksi HTTPS jika tidak di localhost.");
+                    setScanError("Tidak dapat mengakses kamera. Pastikan Anda memberikan izin kamera.");
                     setStep('form');
                     setScannerActive(false);
                 }
@@ -118,15 +136,27 @@ function ExternalCheckInContent() {
         
         try {
             const decodedText = await html5QrCode.scanFile(file, true)
+            let isValid = false
             if (decodedText === session.qr_token) {
+                isValid = true
+            } else if (decodedText.includes('sessionId=')) {
+                try {
+                    const url = new URL(decodedText)
+                    const sId = url.searchParams.get('sessionId')
+                    if (sId === session.id) isValid = true
+                } catch (e) { }
+            }
+
+            if (isValid) {
+                setScanError(null)
                 submitCheckIn()
             } else {
-                alert("QR Code dalam gambar tidak valid untuk sesi ini. Pastikan Anda mengunggah QR Code yang benar.")
+                setScanError("QR Code dalam gambar tidak valid untuk sesi ini. Pastikan Anda mengunggah QR Code yang benar.")
                 setProcessingFile(false)
             }
         } catch (err) {
             console.error("Gagal men-scan file:", err)
-            alert("Tidak dapat mendeteksi QR Code pada gambar ini. Pastikan gambar cukup jelas dan fokus pada QR Code.")
+            setScanError("Tidak dapat mendeteksi QR Code pada gambar ini. Pastikan gambar cukup jelas dan fokus pada QR Code.")
             setProcessingFile(false)
         }
     }
@@ -137,6 +167,7 @@ function ExternalCheckInContent() {
             session_id: sessionId,
             is_external: true,
             external_name: name,
+            external_phone: phone || null,
             external_org: userType === 'mahasiswa' ? 'Telkom University' : org,
             external_nim: userType === 'mahasiswa' ? nim : null,
             external_faculty: userType === 'mahasiswa' ? faculty : null,
@@ -258,6 +289,20 @@ function ExternalCheckInContent() {
                             />
                         </div>
 
+                        <div className="form-group">
+                            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                No. Telepon / WhatsApp
+                            </label>
+                            <input 
+                                className="form-input" 
+                                type="tel"
+                                placeholder="Contoh: 08123456789" 
+                                value={phone} 
+                                onChange={e => setPhone(e.target.value)}
+                                style={{ padding: '0.75rem 1rem' }}
+                            />
+                        </div>
+
                         {userType === 'mahasiswa' ? (
                             <>
                                 <div className="form-group">
@@ -325,13 +370,18 @@ function ExternalCheckInContent() {
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                         <div id="reader" style={{ width: '100%', overflow: 'hidden', borderRadius: '1rem', border: '1px solid #e2e8f0', background: '#000', minHeight: '300px' }}></div>
+                        {scanError && (
+                            <div style={{ padding: '0.75rem', background: '#fef2f2', color: '#dc2626', borderRadius: '0.5rem', fontSize: '0.875rem', textAlign: 'center', border: '1px solid #fecaca' }}>
+                                {scanError}
+                            </div>
+                        )}
                         <div style={{ textAlign: 'center' }}>
                             {processingFile ? (
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: 'var(--color-brand-600)', marginBottom: '1rem', fontWeight: 600 }}>
                                     <Loader2 className="animate-spin" size={18} /> Memproses Gambar...
                                 </div>
                             ) : (
-                                <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1rem' }}>Membuka kamera...</p>
+                                <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1rem' }}>Arahkan kamera ke QR Code kehadiran.</p>
                             )}
                             
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

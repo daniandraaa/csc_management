@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/lib/auth'
-import { formatCurrency, formatDateShort } from '@/lib/utils'
+import { formatCurrency, formatDateShort, calculateKasFine } from '@/lib/utils'
 import { DollarSign, Receipt, Clock, AlertCircle, CheckCircle2, Plus, X } from 'lucide-react'
 
 export default function MyFinancePage() {
@@ -90,8 +90,11 @@ export default function MyFinancePage() {
         const totalPaid = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount_paid, 0)
         const hasPending = payments.some(p => p.status === 'pending')
         
+        const fine = calculateKasFine(monthStr)
+        const requiredAmount = (currentUser?.kas_monthly_amount || 25000) + fine
+
         let status = 'unpaid'
-        if (totalPaid >= (currentUser?.kas_monthly_amount || 25000)) status = 'paid'
+        if (totalPaid >= requiredAmount) status = 'paid'
         else if (totalPaid > 0) status = 'partial'
         else if (hasPending) status = 'pending'
 
@@ -100,6 +103,7 @@ export default function MyFinancePage() {
             monthVal: `${currentYear}-${(i + 1).toString().padStart(2, '0')}`,
             status: status as any,
             amount: totalPaid,
+            requiredAmount: requiredAmount,
             payments: payments // All logs for this month
         }
     })
@@ -152,8 +156,16 @@ export default function MyFinancePage() {
                                         <div>
                                             <div style={{ fontWeight: 600 }}>{m.month}</div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                                                Total Bayar: {formatCurrency(m.amount)}
+                                                Harus Bayar: {formatCurrency(m.requiredAmount)}
                                             </div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                Sudah Bayar: {formatCurrency(m.amount)}
+                                            </div>
+                                            {m.status !== 'paid' && !isFuture && (
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-danger)', fontWeight: 600 }}>
+                                                    Sisa: {formatCurrency(m.requiredAmount - m.amount)}
+                                                </div>
+                                            )}
                                         </div>
                                         <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                             <div style={{ textAlign: 'right' }}>
@@ -162,7 +174,12 @@ export default function MyFinancePage() {
                                                 </span>
                                             </div>
                                             {m.status !== 'paid' && !isFuture && (
-                                                <button className="btn btn-ghost btn-sm btn-icon" onClick={() => { setEditId(null); setPayForm({ month: m.monthVal, amount: (currentUser?.kas_monthly_amount || 25000).toString(), receipt_url: '', notes: '' }); setShowPayModal(true) }} title="Bayar Sekarang"><Plus size={14} /></button>
+                                                <button className="btn btn-ghost btn-sm btn-icon" onClick={() => { 
+                                                    setEditId(null); 
+                                                    const fine = calculateKasFine(`${m.monthVal}-01`);
+                                                    setPayForm({ month: m.monthVal, amount: ((currentUser?.kas_monthly_amount || 25000) + fine).toString(), receipt_url: '', notes: '' }); 
+                                                    setShowPayModal(true) 
+                                                }} title="Bayar Sekarang"><Plus size={14} /></button>
                                             )}
                                         </div>
                                     </div>
@@ -236,6 +253,24 @@ export default function MyFinancePage() {
                                             <div style={{ color: 'var(--text-secondary)' }}>{formatDateShort(r.created_at)}</div>
                                             <div style={{ fontWeight: 700 }}>{formatCurrency(r.amount)}</div>
                                         </div>
+                                        {r.notes && (
+                                            <div style={{ 
+                                                fontSize: '0.75rem', color: 'var(--text-secondary)', 
+                                                marginTop: '0.5rem', padding: '0.5rem', 
+                                                background: '#f8fafc', borderRadius: 8,
+                                                fontStyle: 'italic'
+                                            }}>
+                                                📝 {r.notes}
+                                            </div>
+                                        )}
+                                        {r.description && (
+                                            <div style={{ 
+                                                fontSize: '0.75rem', color: 'var(--text-secondary)', 
+                                                marginTop: '0.25rem'
+                                            }}>
+                                                {r.description}
+                                            </div>
+                                        )}
                                     </div>
                                 ))
                             )}
@@ -250,8 +285,9 @@ export default function MyFinancePage() {
                                 <div>
                                     <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-info)', marginBottom: '0.25rem' }}>Informasi Pembayaran Kas</h3>
                                     <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                        Pembayaran kas dilakukan setiap bulan sebesar <strong>{formatCurrency(currentUser?.kas_monthly_amount || 25000)}</strong>. 
-                                        Silakan hubungi tim Finance untuk melakukan pembayaran atau konfirmasi.
+                                        Pembayaran kas dilakukan setiap bulan sebesar <strong>{formatCurrency(currentUser?.kas_monthly_amount || 25000)}</strong>.
+                                        Terdapat <strong>denda keterlambatan sebesar Rp1.000/hari</strong> mulai tanggal 17 setiap bulannya, maksimal hingga akhir bulan. 
+                                        Silakan hubungi tim Finance untuk melakukan konfirmasi lebih lanjut.
                                     </p>
                                 </div>
                             </div>
@@ -269,7 +305,12 @@ export default function MyFinancePage() {
                                 </p>
                                 <div className="form-group">
                                     <label className="form-label">Bulan *</label>
-                                    <input className="form-input" type="month" required value={payForm.month} onChange={e => setPayForm({ ...payForm, month: e.target.value })} />
+                                    <input className="form-input" type="month" required value={payForm.month} onChange={e => {
+                                        const newMonth = `${e.target.value}-01`
+                                        const baseAmount = currentUser?.kas_monthly_amount || 25000
+                                        const fine = calculateKasFine(newMonth)
+                                        setPayForm({ ...payForm, month: e.target.value, amount: (baseAmount + fine).toString() })
+                                    }} />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Jumlah (Rp) *</label>

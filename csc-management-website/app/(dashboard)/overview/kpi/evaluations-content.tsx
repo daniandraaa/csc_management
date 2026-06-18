@@ -51,12 +51,7 @@ export default function OverviewEvaluationsPage() {
     }
 
     return (
-        <div>
-            <div className="page-container">
-                <h1 className="page-title">Evaluasi Program Anda</h1>
-                <p className="page-subtitle">Evaluasi dari program kerja yang Anda ikuti</p>
-
-                <div className="cards-grid" style={{ marginTop: '1.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
+        <div className="cards-grid" style={{ padding: '0 2rem', marginTop: '1.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
                     {loading ? (
                         <div className="card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem' }}>
                             <p style={{ color: '#94a3b8' }}>Memuat evaluasi...</p>
@@ -122,8 +117,6 @@ export default function OverviewEvaluationsPage() {
                             </div>
                         ))
                     )}
-                </div>
-            </div>
         </div>
     )
 }
