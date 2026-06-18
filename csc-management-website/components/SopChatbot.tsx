@@ -87,7 +87,7 @@ Setiap anggota memiliki peran atau jabatan (Role-Based Access Control) yang mene
 
         const combinedKnowledge = `${generalKnowledge}\n\n${sopContentStr}`
         
-        const sentences = combinedKnowledge.split(/[.!?\n]+/).map(s => s.trim()).filter(s => s.length > 5)
+        const sentences = combinedKnowledge.split(/[.!?\n]+/).map((s: string) => s.trim()).filter((s: string) => s.length > 5)
         
         const stopwords = ['yang', 'dari', 'dan', 'di', 'ke', 'untuk', 'dengan', 'ini', 'itu', 'adalah', 'pada', 'apa', 'bagaimana', 'kenapa', 'mengapa', 'siapa', 'kapan', 'dimana', 'sih', 'dong', 'tolong', 'jelaskan', 'beritahu', 'kasih', 'tau', 'tahu', 'cara']
         const keywords = lowerQuery.split(/[\s,.-]+/).filter((w: string) => w.length > 2 && !stopwords.includes(w))
@@ -111,7 +111,7 @@ Setiap anggota memiliki peran atau jabatan (Role-Based Access Control) yang mene
             return `Ini informasi yang saya temukan untuk Anda:\n\n${responseText}`
         } else {
             // Fallback for general questions or no exact matches
-            const sopSummary = sopContentStr.trim() ? sopContentStr.split(/[.!?\n]+/).map(s => s.trim()).filter(s => s.length > 10).slice(0, 2).join('. ') + '.' : 'Tidak ada teks detail SOP.'
+            const sopSummary = sopContentStr.trim() ? sopContentStr.split(/[.!?\n]+/).map((s: string) => s.trim()).filter((s: string) => s.length > 10).slice(0, 2).join('. ') + '.' : 'Tidak ada teks detail SOP.'
             if (keywords.length === 0) {
                 return `Aplikasi CSC Management memiliki fitur untuk mengelola Keuangan, SDM, Marketing, dan Operasional.\n\nTerkait dokumen SOP "${sop.title}" ini, berikut ringkasannya:\n${sopSummary}\n\nAda hal spesifik yang ingin Anda tanyakan terkait aplikasi atau dokumen ini?`
             } else {
