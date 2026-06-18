@@ -6,6 +6,7 @@ import { FileText as FileTextIcon, Plus, X, Upload, FileText, Download, MessageS
 import CsvImportModal from '@/components/CsvImportModal'
 import SopChatbot from '@/components/SopChatbot'
 import { exportToPdf, exportToCsv } from '@/lib/export'
+// @ts-ignore
 import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs'
 
 if (typeof window !== 'undefined') {
