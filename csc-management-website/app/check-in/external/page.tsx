@@ -168,7 +168,7 @@ function ExternalCheckInContent() {
             is_external: true,
             external_name: name,
             external_phone: phone || null,
-            external_org: userType === 'mahasiswa' ? 'Telkom University' : org,
+            external_org: org,
             external_nim: userType === 'mahasiswa' ? nim : null,
             external_faculty: userType === 'mahasiswa' ? faculty : null,
             external_major: userType === 'mahasiswa' ? major : null,
@@ -341,6 +341,19 @@ function ExternalCheckInContent() {
                                             style={{ padding: '0.75rem 1rem' }}
                                         />
                                     </div>
+                                </div>
+                                <div className="form-group" style={{ marginTop: '0.25rem' }}>
+                                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Building size={14} /> Asal Instansi / Organisasi *
+                                    </label>
+                                    <input 
+                                        className="form-input" 
+                                        placeholder="Contoh: BEM / HIMA / Telkom University" 
+                                        required 
+                                        value={org} 
+                                        onChange={e => setOrg(e.target.value)}
+                                        style={{ padding: '0.75rem 1rem' }}
+                                    />
                                 </div>
                             </>
                         ) : (
