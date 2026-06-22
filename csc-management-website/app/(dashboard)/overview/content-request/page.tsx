@@ -187,9 +187,9 @@ export default function OverviewContentRequestPage() {
                                 const st = statusStyles[r.status] || statusStyles.pending
                                 return (
                                     <tr key={r.id} className="table-row-hover">
-                                        <td data-label="Judul" style={{ padding: '1.25rem 1rem' }}>
+                                        <td data-label="Judul" style={{ padding: '1.25rem 1rem', verticalAlign: 'top' }}>
                                             <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{r.title}</div>
-                                            {r.description && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</div>}
+                                            {r.description && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: 400, marginTop: '0.25rem', whiteSpace: 'pre-wrap' }}>{r.description}</div>}
                                         </td>
                                         {canManage && (
                                             <td data-label="Pengaju">
