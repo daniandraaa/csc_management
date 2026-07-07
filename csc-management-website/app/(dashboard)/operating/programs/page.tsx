@@ -23,7 +23,7 @@ export default function ProgramsPage() {
     const [search, setSearch] = useState('')
     const [form, setForm] = useState({ 
         name: '', description: '', objectives: '', start_date: '', end_date: '', 
-        status: 'on_track', budget: '', department_id: '', pic_id: '',
+        status: 'planned', budget: '', department_id: '', pic_id: '',
         completion_percentage: 0, sop_sent: false, program_type: 'internal'
     })
     const [editId, setEditId] = useState<string | null>(null)
@@ -51,14 +51,29 @@ export default function ProgramsPage() {
             completion_percentage: parseInt(form.completion_percentage.toString()) || 0,
             program_type: form.program_type || 'internal'
         }
-        if (editId) { await supabase.from('programs').update(payload).eq('id', editId) } else { await supabase.from('programs').insert(payload) }
+        
+        let errorObj = null;
+        if (editId) { 
+            const { error } = await supabase.from('programs').update(payload).eq('id', editId) 
+            errorObj = error;
+        } else { 
+            const { error } = await supabase.from('programs').insert(payload) 
+            errorObj = error;
+        }
+        
+        if (errorObj) {
+            alert('Error: ' + errorObj.message);
+            console.error(errorObj);
+            return;
+        }
+        
         setShowModal(false); setEditId(null); resetForm(); loadData()
     }
 
     function resetForm() {
         setForm({ 
             name: '', description: '', objectives: '', start_date: '', end_date: '', 
-            status: 'on_track', budget: '', department_id: '', pic_id: '',
+            status: 'planned', budget: '', department_id: '', pic_id: '',
             completion_percentage: 0, sop_sent: false, program_type: 'internal'
         })
     }
@@ -118,7 +133,7 @@ export default function ProgramsPage() {
                                             <td>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                     <div style={{ flex: 1, height: 6, background: '#f1f5f9', borderRadius: 3, minWidth: 60 }}>
-                                                        <div style={{ height: '100%', width: `${p.completion_percentage || 0}%`, background: p.status === 'on_track' ? '#22c55e' : p.status === 'at_risk' ? '#f59e0b' : '#ef4444', borderRadius: 3 }}></div>
+                                                        <div style={{ height: '100%', width: `${p.completion_percentage || 0}%`, background: p.status === 'completed' ? '#22c55e' : p.status === 'in_progress' ? '#eab308' : p.status === 'planned' ? '#3b82f6' : '#ef4444', borderRadius: 3 }}></div>
                                                     </div>
                                                     <span style={{ fontSize: '0.75rem', fontWeight: 600, width: 32 }}>{p.completion_percentage || 0}%</span>
                                                 </div>
@@ -177,7 +192,7 @@ export default function ProgramsPage() {
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="form-group"><label className="form-label">Status</label><select className="form-select" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="on_track">On Track</option><option value="at_risk">At Risk</option><option value="delayed">Delayed</option></select></div>
+                                        <div className="form-group"><label className="form-label">Status</label><select className="form-select" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="planned">Planned</option><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
                                         <div className="form-group"><label className="form-label">Budget</label><input className="form-input" type="number" value={form.budget} onChange={e => setForm({ ...form, budget: e.target.value })} /></div>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
