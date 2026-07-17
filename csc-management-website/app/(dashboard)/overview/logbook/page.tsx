@@ -6,6 +6,7 @@ import { useCurrentUser } from '@/lib/auth'
 import { canManageModule } from '@/lib/rbac'
 import { formatDateShort } from '@/lib/utils'
 import { BookOpen, Plus, X, Search } from 'lucide-react'
+import Linkify from '@/components/Linkify'
 
 export default function OverviewLogbookPage() {
     const { currentUser } = useCurrentUser()
@@ -137,7 +138,7 @@ export default function OverviewLogbookPage() {
                                         <td style={{ whiteSpace: 'nowrap' }}>{formatDateShort(e.date)}</td>
                                         {viewAll && canManage && <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{e.member?.full_name || '-'}</td>}
                                         <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{e.title}</td>
-                                        <td style={{ minWidth: 200, fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{e.description}</td>
+                                        <td style={{ minWidth: 200, fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}><Linkify text={e.description} /></td>
                                         <td>{e.category ? <span className="badge badge-info">{e.category}</span> : '-'}</td>
                                         <td style={{ fontWeight: 600 }}>{e.hours_spent ? `${e.hours_spent}h` : '-'}</td>
                                         {canManage && (

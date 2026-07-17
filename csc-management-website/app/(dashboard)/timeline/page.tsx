@@ -9,6 +9,7 @@ import { Clock, Plus, X, CalendarDays, Upload, FileText, Download, ChevronLeft, 
 import CsvImportModal from '@/components/CsvImportModal'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { exportToPdf, exportToCsv } from '@/lib/export'
+import Linkify from '@/components/Linkify'
 
 const TYPES = [
     { value: 'meeting', label: 'Rapat', icon: '📋', color: '#dc2626' },
@@ -464,11 +465,11 @@ export default function TimelinePage() {
                                             </div>
                                             {ev.is_full_day ? <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> Full Day</div> : ev.start_time && <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> {ev.start_time.slice(0, 5)}{ev.end_time ? ` - ${ev.end_time.slice(0, 5)}` : ''}</div>}
                                             {ev.location && <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>📍 {ev.location}</div>}
-                                            {ev.description && <p style={{ fontSize: '0.75rem', color: '#475569', marginTop: 6, lineHeight: 1.5 }}>{ev.description}</p>}
+                                            {ev.description && <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: 6, lineHeight: 1.5 }}><Linkify text={ev.description} /></div>}
                                             {ev.decisions && (
                                                 <div style={{ marginTop: 6, padding: '0.5rem 0.625rem', background: '#fff1f2', borderRadius: 8, fontSize: '0.75rem', color: '#9f1239', display: 'flex', alignItems: 'flex-start', gap: 4 }}>
                                                     <ClipboardList size={12} style={{ marginTop: 2, flexShrink: 0 }} />
-                                                    <span>{ev.decisions}</span>
+                                                    <span><Linkify text={ev.decisions} /></span>
                                                 </div>
                                             )}
                                             {ev.decision_link && (
@@ -554,7 +555,7 @@ export default function TimelinePage() {
                                                                     <span className="badge" style={{ background: `${typeInfo.color}10`, color: typeInfo.color, fontWeight: 700, fontSize: '0.6875rem' }}>{typeInfo.label}</span>
                                                                 </div>
 
-                                                                {item.description && <p style={{ fontSize: '0.875rem', color: '#475569', lineHeight: 1.6, marginBottom: '1rem' }}>{item.description}</p>}
+                                                                {item.description && <div style={{ fontSize: '0.875rem', color: '#475569', lineHeight: 1.6, marginBottom: '1rem' }}><Linkify text={item.description} /></div>}
                                                                 
                                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: 8 }}>
@@ -574,7 +575,7 @@ export default function TimelinePage() {
                                                                         <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
                                                                             <Users size={12} /> Peserta
                                                                         </div>
-                                                                        <p style={{ fontSize: '0.8125rem', color: '#475569', fontWeight: 500 }}>{item.attendees_text}</p>
+                                                                        <div style={{ fontSize: '0.8125rem', color: '#475569', fontWeight: 500 }}><Linkify text={item.attendees_text} /></div>
                                                                     </div>
                                                                 )}
 
@@ -587,7 +588,7 @@ export default function TimelinePage() {
                                                                         <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#be123c', textTransform: 'uppercase', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
                                                                             <ClipboardList size={12} /> Keputusan Utama
                                                                         </div>
-                                                                        <p style={{ fontSize: '0.8125rem', color: '#9f1239', fontWeight: 500 }}>{item.decisions}</p>
+                                                                        <div style={{ fontSize: '0.8125rem', color: '#9f1239', fontWeight: 500 }}><Linkify text={item.decisions} /></div>
                                                                     </div>
                                                                 )}
 
@@ -607,7 +608,7 @@ export default function TimelinePage() {
                                                                 {item.notes && (
                                                                     <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f8fafc', borderRadius: 10, borderLeft: '3px solid #e2e8f0' }}>
                                                                         <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Catatan Tambahan</div>
-                                                                        <p style={{ fontSize: '0.8125rem', color: '#475569', fontStyle: 'italic' }}>"{item.notes}"</p>
+                                                                        <div style={{ fontSize: '0.8125rem', color: '#475569', fontStyle: 'italic' }}>"<Linkify text={item.notes} />"</div>
                                                                     </div>
                                                                 )}
 

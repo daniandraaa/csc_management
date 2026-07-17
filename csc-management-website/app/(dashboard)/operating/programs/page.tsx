@@ -3,15 +3,20 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCurrentUser } from '@/lib/auth'
+import { canPerformAction } from '@/lib/rbac'
 import { useRouter } from 'next/navigation'
 import { getStatusColor, getStatusLabel, formatDateShort, formatCurrency } from '@/lib/utils'
 import { FolderKanban, Plus, X, Search, Eye, Upload, Download, FileText, CalendarDays, CheckCircle2 } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
 import { exportToPdf, exportToCsv } from '@/lib/export'
+import Linkify from '@/components/Linkify'
 
 export default function ProgramsPage() {
     const router = useRouter()
     const { currentUser } = useCurrentUser()
+    
+    const canCreate = canPerformAction(currentUser, '/operating/programs', 'create')
+    const canDelete = canPerformAction(currentUser, '/operating/programs', 'delete')
     const [programs, setPrograms] = useState<any[]>([])
     const [members, setMembers] = useState<any[]>([])
     const [departments, setDepartments] = useState<any[]>([])
@@ -111,10 +116,10 @@ export default function ProgramsPage() {
                 <div className="toolbar" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                     <div className="toolbar-left" style={{ flex: '1 1 300px' }}><div className="search-input"><Search /><input className="form-input" placeholder="Cari proker..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: '2.25rem' }} /></div></div>
                     <div className="toolbar-right" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-                        <button className="btn btn-secondary btn-sm hidden md:flex" onClick={() => setShowCsvImport(true)}><Upload size={14} /> <span className="hidden lg:inline">Import CSV</span></button>
+                        {canCreate && <button className="btn btn-secondary btn-sm hidden md:flex" onClick={() => setShowCsvImport(true)}><Upload size={14} /> <span className="hidden lg:inline">Import CSV</span></button>}
                         <button className="btn btn-secondary btn-sm" onClick={() => exportToCsv(progPdfCols, progData, `CSC_Programs_${new Date().toISOString().split('T')[0]}.csv`)}><Download size={14} /> <span className="hidden sm:inline">CSV</span></button>
                         <button className="btn btn-secondary btn-sm hidden sm:flex" onClick={() => exportToPdf({ title: 'Daftar Program Kerja CSC', subtitle: `Total: ${progData.length} program`, columns: progPdfCols, data: progData })}><FileText size={14} /> <span className="hidden lg:inline">Export PDF</span></button>
-                        <button className="btn btn-primary btn-sm" style={{ padding: '0.5rem 1rem' }} onClick={() => { setEditId(null); resetForm(); setShowModal(true) }}><Plus size={16} /> <span className="hidden sm:inline">Tambah Proker</span><span className="sm:hidden">Tambah</span></button>
+                        {canCreate && <button className="btn btn-primary btn-sm" style={{ padding: '0.5rem 1rem' }} onClick={() => { setEditId(null); resetForm(); setShowModal(true) }}><Plus size={16} /> <span className="hidden sm:inline">Tambah Proker</span><span className="sm:hidden">Tambah</span></button>}
                     </div>
                 </div>
 
@@ -144,8 +149,9 @@ export default function ProgramsPage() {
                                             <td><span className={`badge badge-${getStatusColor(p.status)}`}>{getStatusLabel(p.status)}</span></td>
                                             <td>
                                                 <div style={{ display: 'flex', gap: 4 }}>
-                                                    <button className="btn btn-ghost btn-sm" title="Lihat Detail" onClick={() => viewDetail(p)}><Eye size={14} /></button>
-                                                    <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ name: p.name, description: p.description || '', objectives: p.objectives || '', start_date: p.start_date || '', end_date: p.end_date || '', status: p.status, budget: p.budget?.toString() || '', department_id: p.department_id || '', pic_id: p.pic_id || '', completion_percentage: p.completion_percentage || 0, sop_sent: p.sop_sent || false, program_type: p.program_type || 'internal' }); setEditId(p.id); setShowModal(true) }}>Edit</button>
+                                                    <button className="btn btn-ghost btn-sm" title="Lihat Detail" onClick={() => viewDetail(p)}><Eye size={16} /></button>
+                                                    {canCreate && <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ name: p.name, description: p.description || '', objectives: p.objectives || '', start_date: p.start_date || '', end_date: p.end_date || '', status: p.status, budget: p.budget?.toString() || '', department_id: p.department_id || '', pic_id: p.pic_id || '', completion_percentage: p.completion_percentage || 0, sop_sent: p.sop_sent || false, program_type: p.program_type || 'internal' }); setEditId(p.id); setShowModal(true) }}>Edit</button>}
+                                                    {canDelete && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => { if (confirm('Hapus proker?')) { supabase.from('programs').delete().eq('id', p.id).then(() => loadData()) } }}>Hapus</button>}
                                                 </div>
                                             </td>
                                         </tr>
@@ -217,7 +223,7 @@ export default function ProgramsPage() {
                                     <span className={`badge ${showDetail.sop_sent ? 'badge-success' : 'badge-danger'}`}>SOP: {showDetail.sop_sent ? 'SENT' : 'NOT SENT'}</span>
                                     <span className="badge badge-info">{showDetail.completion_percentage || 0}% Complete</span>
                                 </div>
-                                {showDetail.description && <div style={{ marginBottom: '1rem' }}><h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 4 }}>Deskripsi</h4><p style={{ fontSize: '0.875rem', lineHeight: 1.6 }}>{showDetail.description}</p></div>}
+                                {showDetail.description && <div style={{ marginBottom: '1rem' }}><h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 4 }}>Deskripsi</h4><div style={{ fontSize: '0.875rem', lineHeight: 1.6 }}><Linkify text={showDetail.description} /></div></div>}
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                                     <div><h4 style={{ fontSize: '0.8125rem', fontWeight: 600 }}>Budget</h4><p>{formatCurrency(showDetail.budget || 0)}</p></div>
                                     <div><h4 style={{ fontSize: '0.8125rem', fontWeight: 600 }}>PIC</h4><p>{showDetail.pic?.full_name || '-'}</p></div>

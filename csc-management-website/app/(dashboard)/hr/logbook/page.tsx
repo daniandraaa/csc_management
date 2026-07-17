@@ -8,6 +8,7 @@ import CsvImportModal from '@/components/CsvImportModal'
 import { exportToPdf, exportToCsv } from '@/lib/export'
 import { useCurrentUser } from '@/lib/auth'
 import { canManageModule } from '@/lib/rbac'
+import Linkify from '@/components/Linkify'
 
 const CSV_COLUMNS = [
     { key: 'title', label: 'Judul', required: true },
@@ -123,7 +124,7 @@ export default function LogbookPage() {
                                                     {entry.category && <span className="badge badge-info" style={{ marginLeft: 8 }}>{entry.category}</span>}
                                                     {entry.hours_spent && <span className="badge badge-default" style={{ marginLeft: 4 }}>{entry.hours_spent}h</span>}
                                                 </div>
-                                                <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>{entry.description}</p>
+                                                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: 4 }}><Linkify text={entry.description} /></div>
                                                 <span style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)' }}>{entry.member?.full_name}</span>
                                             </div>
                                             <div style={{ display: 'flex', gap: 4 }}>

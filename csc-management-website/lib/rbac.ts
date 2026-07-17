@@ -82,8 +82,8 @@ const PAGE_PERMISSIONS: PagePermission[] = [
     },
 
     {
-        path: '/operating/programs', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],
-        actions: { create: ['BOE', 'C Level', 'Manager', 'Staff'], approve: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
+        path: '/operating/programs', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff', 'Business Partner'], departments: ['all'],
+        actions: { create: ['BOE', 'C Level', 'Manager', 'Secretary', 'Administration', 'Staff', 'Business Partner'], approve: ['BOE', 'C Level', 'Manager'], delete: ['BOE', 'C Level', 'Manager'] }
     },
     {
         path: '/operating/broadcasts', roles: ['BOE', 'C Level', 'Manager', 'Secretary', 'Staff'], departments: ['all'],

@@ -158,6 +158,22 @@ export default function KasManagementPage() {
         loadData()
     }
 
+    async function handleDelete(item: any) {
+        if (!confirm('Yakin ingin menghapus data kas ini?')) return
+        try {
+            if (item.transaction_id) {
+                const { error: txError } = await supabase.from('financial_transactions').delete().eq('id', item.transaction_id)
+                if (txError) throw new Error('Gagal menghapus transaksi terkait: ' + txError.message)
+            }
+            const { error: kasError } = await supabase.from('member_kas').delete().eq('id', item.id)
+            if (kasError) throw new Error('Gagal menghapus kas: ' + kasError.message)
+            loadData()
+        } catch (err: any) {
+            console.error('Delete error:', err)
+            alert(err.message)
+        }
+    }
+
     const filtered = items.filter(i => 
         i.member?.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         i.member?.nim?.includes(searchTerm)
@@ -399,22 +415,26 @@ export default function KasManagementPage() {
                                                                     setEditId(i.id); 
                                                                     setShowModal(true) 
                                                                 }}>Review</button>
+                                                                <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }} onClick={() => handleDelete(i)}><X size={14} /></button>
                                                             </div>
                                                         ) : (
-                                                            <button className="btn btn-ghost btn-sm" onClick={() => { 
-                                                                setForm({ 
-                                                                    member_id: i.member_id, 
-                                                                    month: i.month, 
-                                                                    amount_paid: i.amount_paid.toString(), 
-                                                                    status: i.status, 
-                                                                    payment_date: i.payment_date || '', 
-                                                                    receipt_url: i.receipt_url || '',
-                                                                    transaction_id: i.transaction_id,
-                                                                    notes: i.notes || '' 
-                                                                }); 
-                                                                setEditId(i.id); 
-                                                                setShowModal(true) 
-                                                            }}>Review</button>
+                                                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                                <button className="btn btn-ghost btn-sm" onClick={() => { 
+                                                                    setForm({ 
+                                                                        member_id: i.member_id, 
+                                                                        month: i.month, 
+                                                                        amount_paid: i.amount_paid.toString(), 
+                                                                        status: i.status, 
+                                                                        payment_date: i.payment_date || '', 
+                                                                        receipt_url: i.receipt_url || '',
+                                                                        transaction_id: i.transaction_id,
+                                                                        notes: i.notes || '' 
+                                                                    }); 
+                                                                    setEditId(i.id); 
+                                                                    setShowModal(true) 
+                                                                }}>Review</button>
+                                                                <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }} onClick={() => handleDelete(i)}><X size={14} /></button>
+                                                            </div>
                                                         )}
                                                     </td>
                                                 </tr>

@@ -8,6 +8,7 @@ import { getStatusColor, getStatusLabel, formatDateShort, formatCurrency } from 
 import { Receipt, Plus, X, Search, Upload, Download, FileText, CheckCircle2 } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
 import { exportToPdf, exportToCsv } from '@/lib/export'
+import Linkify from '@/components/Linkify'
 
 export default function ReimbursementPage() {
     const { currentUser } = useCurrentUser()
@@ -96,6 +97,22 @@ export default function ReimbursementPage() {
             if (member) await supabase.from('reimbursements').insert({ member_id: member.id, title: row.title || '', amount: parseFloat(row.amount) || 0, description: row.description || null, status: 'pending' })
         }
         loadData()
+    }
+
+    async function handleDelete(id: string) {
+        if (!confirm('Hapus reimbursement ini?')) return;
+        try {
+            const { error: txError } = await supabase.from('financial_transactions').delete().eq('reimbursement_id', id);
+            if (txError) throw new Error('Gagal menghapus transaksi terkait: ' + txError.message);
+            
+            const { error: rmbError } = await supabase.from('reimbursements').delete().eq('id', id);
+            if (rmbError) throw new Error('Gagal menghapus reimbursement: ' + rmbError.message);
+            
+            loadData();
+        } catch (err: any) {
+            console.error('Delete error:', err);
+            alert(err.message);
+        }
     }
     const reimbPdfCols = [{ header: 'Anggota', key: 'member_name' }, { header: 'Judul', key: 'title' }, { header: 'Jumlah', key: 'amount_str' }, { header: 'Status', key: 'status_label' }, { header: 'Tanggal', key: 'date' }]
     const reimbData = items.map((r: any) => ({ member_name: r.member?.full_name || '-', title: r.title, amount_str: formatCurrency(r.amount), status_label: getStatusLabel(r.status), date: formatDateShort(r.created_at) }))
@@ -186,8 +203,8 @@ export default function ReimbursementPage() {
                                             </td>
                                             <td data-label="Judul">
                                                 <div style={{ fontWeight: 500 }}>{r.title}</div>
-                                                {r.description && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</div>}
-                                                {r.notes && <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', marginTop: '0.25rem', fontStyle: 'italic', background: 'var(--bg-secondary)', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', display: 'inline-block' }}>Catatan: {r.notes}</div>}
+                                                {r.description && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Linkify text={r.description} /></div>}
+                                                {r.notes && <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', marginTop: '0.25rem', fontStyle: 'italic', background: 'var(--bg-secondary)', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', display: 'inline-block' }}>Catatan: <Linkify text={r.notes} /></div>}
                                             </td>
                                             <td data-label="Program">{r.program?.name || <span style={{ color: 'var(--text-tertiary)' }}>-</span>}</td>
                                             <td data-label="Jumlah">
@@ -210,7 +227,7 @@ export default function ReimbursementPage() {
                                                 {canManage ? (
                                                     <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
                                                         <button className="btn btn-ghost btn-sm" style={{ borderRadius: '0.5rem' }} onClick={() => { setForm({ member_id: r.member_id, program_id: r.program_id || '', title: r.title, description: r.description || '', amount: r.amount.toString(), receipt_url: r.receipt_url || '', status: r.status, notes: r.notes || '', reimbursed_amount: r.reimbursed_amount?.toString() || r.amount.toString() }); setEditId(r.id); setShowModal(true) }}>Review</button>
-                                                        <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444', borderRadius: '0.5rem' }} onClick={async () => { if (confirm('Hapus reimbursement ini?')) { await supabase.from('reimbursements').delete().eq('id', r.id); loadData() } }}><X size={14} /></button>
+                                                        <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444', borderRadius: '0.5rem' }} onClick={() => handleDelete(r.id)}><X size={14} /></button>
                                                     </div>
                                                 ) : (
                                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 500 }}>Disubmit</span>
