@@ -139,13 +139,13 @@ export function calculateKasFine(monthStr: string, paymentDate?: string): number
     
     if (targetYearMonth === kasYearMonth) {
         const targetDay = targetDate.getDate();
-        if (targetDay >= 17) {
-            return (targetDay - 16) * 1000;
+        if (targetDay >= 18) {
+            return (targetDay - 17) * 1000;
         }
         return 0;
     }
     
     // Past the kas month: maximum fine is until the end of the kas month
     const lastDay = new Date(year, month, 0).getDate();
-    return (lastDay - 16) * 1000;
+    return (lastDay - 17) * 1000;
 }
