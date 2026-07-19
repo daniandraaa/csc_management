@@ -108,13 +108,13 @@ export default function DaftarMitraPage() {
                             Terima kasih atas minat Anda untuk menjadi Mitra Bisnis CSC. 
                             Tim Bidang Bisnis akan meninjau pendaftaran Anda dan menghubungi via WhatsApp.
                         </p>
-                        <Link href="/" style={{
+                        <Link href="/mitra/login" style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
                             padding: '0.875rem 2rem', borderRadius: 12,
                             background: 'linear-gradient(135deg, #9A3412, #7C2D12)', color: 'white',
                             fontWeight: 700, textDecoration: 'none',
                         }}>
-                            <ArrowLeft size={16} /> Kembali ke Beranda
+                            <ArrowLeft size={16} /> Kembali ke Login Mitra
                         </Link>
                     </div>
                 </div>

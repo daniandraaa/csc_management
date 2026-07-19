@@ -22,7 +22,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
             !pathname.startsWith('/check-in') && 
             !pathname.startsWith('/track') &&
             !pathname.startsWith('/order-monitoring') &&
-            !pathname.startsWith('/mitra')
+            !pathname.startsWith('/mitra') &&
+            !pathname.startsWith('/daftar-agen')
         ) {
             router.push('/login')
         }
