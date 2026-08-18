@@ -180,8 +180,9 @@ export default function AdministrasiDashboard() {
 
         // 4. Fetch Evaluations for Compliance Score and Leaderboard
         const { data: evals, error: evalsError } = await supabase
-            .from('admin_evaluations')
-            .select('score, program:programs(department:departments(name))')
+            .from('admin_reviews')
+            .select('score:doc_score, program:programs(department:departments(name))')
+            .not('doc_score', 'is', null)
         
         if (evals && evals.length > 0) {
             setTotalEvaluated(evals.length)
