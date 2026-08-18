@@ -170,8 +170,13 @@ export default function AdminReviewPage() {
 
     async function handleDelete(id: string) {
         if (!confirm('Yakin ingin menghapus review ini?')) return
-        await supabase.from('admin_reviews').delete().eq('id', id)
-        loadData()
+        const { error } = await supabase.from('admin_reviews').delete().eq('id', id)
+        if (error) {
+            console.error('Delete error:', error)
+            alert('Gagal menghapus review: ' + error.message)
+        } else {
+            loadData()
+        }
     }
 
     const statusIcon = (status: string) => {
