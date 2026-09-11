@@ -30,8 +30,8 @@ export default function KasManagementPage() {
     const [members, setMembers] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
-    const [filterMonth, setFilterMonth] = useState('all')
-    const [filterYear, setFilterYear] = useState('all')
+    const [filterMonth, setFilterMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'))
+    const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString())
     const [searchTerm, setSearchTerm] = useState('')
     const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all')
     const [showCsvImport, setShowCsvImport] = useState(false)
@@ -262,13 +262,26 @@ export default function KasManagementPage() {
         { key: 'notes', label: 'Catatan' },
     ]
 
-    // Members who haven't fully paid this month
-    const memberPaidTotals = items.reduce((acc, i) => {
-        if (i.status === 'paid') acc[i.member_id] = (acc[i.member_id] || 0) + i.amount_paid
-        return acc
-    }, {} as Record<string, number>)
+    const isSpecificMonth = filterMonth !== 'all' && filterYear !== 'all'
+    const currentTargetMonth = isSpecificMonth ? `${filterYear}-${filterMonth}-01` : null
 
-    const unpaidMembers = members.filter(m => (memberPaidTotals[m.id] || 0) < (m.kas_monthly_amount || 25000))
+    // For specific month, filter to that month.
+    const displayItems = filtered.filter(i => {
+        if (activeTab === 'pending') return i.status === 'pending';
+        if (currentTargetMonth) return i.month === currentTargetMonth || i.status === 'pending';
+        return true;
+    })
+
+    const paidItems = displayItems.filter(i => i.status !== 'pending' && i.status !== 'rejected')
+    
+    let unpaidMembersList = []
+    if (currentTargetMonth) {
+        unpaidMembersList = members.filter(m => {
+            if (searchTerm && !m.full_name.toLowerCase().includes(searchTerm.toLowerCase()) && !m.nim?.includes(searchTerm)) return false;
+            const hasPaid = items.some(i => i.member_id === m.id && i.month === currentTargetMonth && (i.status === 'paid' || i.status === 'partial' || i.status === 'pending'))
+            return !hasPaid
+        })
+    }
 
     return (
         <div>
@@ -399,22 +412,131 @@ export default function KasManagementPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    <div className="lg:col-span-8">
+                <div className="grid gap-6">
+                    {activeTab === 'pending' ? (
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                             <div className="data-table-container">
                                 <table className="data-table">
                                     <thead><tr><th>Anggota</th><th>Bulan</th><th>Tanggal Bayar</th><th>Jumlah</th><th>Status</th><th>Aksi</th></tr></thead>
                                     <tbody>
-                                        {loading ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem' }}>Memuat...</td></tr> :
-                                            filtered.length === 0 ? <tr><td colSpan={6} className="text-center" style={{ padding: '3rem' }}>Tidak ada data yang ditemukan</td></tr> :
-                                            filtered
-                                            .filter(i => {
-                                                if (activeTab === 'pending') return i.status === 'pending';
-                                                if (filterYear === 'all' || filterMonth === 'all') return true;
-                                                return i.month === `${filterYear}-${filterMonth}-01` || i.status === 'pending';
-                                            })
-                                            .map(i => (
+                                        {loading ? <tr><td colSpan={6} className="text-center" style={{ padding: '3rem' }}>Memuat...</td></tr> :
+                                            displayItems.length === 0 ? <tr><td colSpan={6} className="text-center" style={{ padding: '3rem' }}>Tidak ada data yang menunggu persetujuan</td></tr> :
+                                            displayItems.map(i => (
+                                                <tr key={i.id}>
+                                                    <td>
+                                                        <div style={{ fontWeight: 600 }}>{i.member?.full_name}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{i.member?.nim}</div>
+                                                    </td>
+                                                    <td style={{ fontSize: '0.8125rem' }}>{new Date(i.month).toLocaleString('id-ID', { month: 'long', year: 'numeric' })}</td>
+                                                    <td>{i.payment_date ? formatDateShort(i.payment_date) : '-'}</td>
+                                                    <td style={{ fontWeight: 600 }}>{formatCurrency(i.amount_paid)}</td>
+                                                    <td>
+                                                        <span className="badge badge-info">Menunggu Verifikasi</span>
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                            <button className="btn btn-primary btn-sm" style={{ background: 'var(--color-success)', borderColor: 'var(--color-success)' }} onClick={() => handleApprove(i)}>Approve</button>
+                                                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleReject(i.id)}>Reject</button>
+                                                            <button className="btn btn-ghost btn-sm" onClick={() => { 
+                                                                setForm({ member_id: i.member_id, month: i.month, amount_paid: i.amount_paid.toString(), status: i.status, payment_date: i.payment_date || '', receipt_url: i.receipt_url || '', transaction_id: i.transaction_id, notes: i.notes || '' }); 
+                                                                setEditId(i.id); setShowModal(true); 
+                                                            }}>Review</button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : isSpecificMonth ? (
+                        <>
+                            {/* Unpaid Section */}
+                            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-danger)' }}>Belum Bayar ({unpaidMembersList.length})</h3>
+                                    <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Periode: {MONTHS.find(m => m.value === filterMonth)?.label} {filterYear}</span>
+                                </div>
+                                <div className="data-table-container">
+                                    <table className="data-table">
+                                        <thead><tr><th>Anggota</th><th>Status</th><th>Tagihan</th><th>Aksi</th></tr></thead>
+                                        <tbody>
+                                            {loading ? <tr><td colSpan={4} className="text-center" style={{ padding: '3rem' }}>Memuat...</td></tr> :
+                                                unpaidMembersList.length === 0 ? <tr><td colSpan={4} className="text-center" style={{ padding: '3rem' }}>Semua anggota sudah membayar bulan ini!</td></tr> :
+                                                unpaidMembersList.map(m => (
+                                                    <tr key={m.id}>
+                                                        <td>
+                                                            <div style={{ fontWeight: 600 }}>{m.full_name}</div>
+                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{m.nim}</div>
+                                                        </td>
+                                                        <td><span className="badge badge-danger">Belum Lunas</span></td>
+                                                        <td style={{ fontWeight: 600 }}>{formatCurrency(m.kas_monthly_amount || 25000)}</td>
+                                                        <td>
+                                                            <button className="btn btn-primary btn-sm" onClick={() => { 
+                                                                setForm({ ...form, member_id: m.id, amount_paid: m.kas_monthly_amount?.toString() || '25000', month: currentTargetMonth, receipt_url: '', transaction_id: null, status: 'paid' }); 
+                                                                setShowModal(true); 
+                                                            }}>Input Bayar</button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Paid Section */}
+                            <div className="card mt-2" style={{ padding: 0, overflow: 'hidden' }}>
+                                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-success)' }}>Sudah Bayar ({paidItems.length})</h3>
+                                    <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Periode: {MONTHS.find(m => m.value === filterMonth)?.label} {filterYear}</span>
+                                </div>
+                                <div className="data-table-container">
+                                    <table className="data-table">
+                                        <thead><tr><th>Anggota</th><th>Tanggal Bayar</th><th>Jumlah</th><th>Status</th><th>Aksi</th></tr></thead>
+                                        <tbody>
+                                            {loading ? <tr><td colSpan={5} className="text-center" style={{ padding: '3rem' }}>Memuat...</td></tr> :
+                                                paidItems.length === 0 ? <tr><td colSpan={5} className="text-center" style={{ padding: '3rem' }}>Belum ada data pembayaran lunas bulan ini</td></tr> :
+                                                paidItems.map(i => (
+                                                    <tr key={i.id}>
+                                                        <td>
+                                                            <div style={{ fontWeight: 600 }}>{i.member?.full_name}</div>
+                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{i.member?.nim}</div>
+                                                        </td>
+                                                        <td>{i.payment_date ? formatDateShort(i.payment_date) : '-'}</td>
+                                                        <td style={{ fontWeight: 600 }}>{formatCurrency(i.amount_paid)}</td>
+                                                        <td>
+                                                            <span className={`badge badge-${i.status === 'paid' ? 'success' : 'warning'}`}>
+                                                                {i.status === 'paid' ? 'Lunas' : 'Sebagian'}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                                <button className="btn btn-ghost btn-sm" onClick={() => { 
+                                                                    setForm({ member_id: i.member_id, month: i.month, amount_paid: i.amount_paid.toString(), status: i.status, payment_date: i.payment_date || '', receipt_url: i.receipt_url || '', transaction_id: i.transaction_id, notes: i.notes || '' }); 
+                                                                    setEditId(i.id); setShowModal(true); 
+                                                                }}>Review</button>
+                                                                <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }} onClick={() => handleDelete(i)}><X size={14} /></button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                            <div className="data-table-container">
+                                <table className="data-table">
+                                    <thead><tr><th>Anggota</th><th>Bulan</th><th>Tanggal Bayar</th><th>Jumlah</th><th>Status</th><th>Aksi</th></tr></thead>
+                                    <tbody>
+                                        {loading ? <tr><td colSpan={6} className="text-center" style={{ padding: '3rem' }}>Memuat...</td></tr> :
+                                            displayItems.length === 0 ? <tr><td colSpan={6} className="text-center" style={{ padding: '3rem' }}>Tidak ada data yang ditemukan</td></tr> :
+                                            displayItems.map(i => (
                                                 <tr key={i.id}>
                                                     <td>
                                                         <div style={{ fontWeight: 600 }}>{i.member?.full_name}</div>
@@ -435,45 +557,13 @@ export default function KasManagementPage() {
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        {i.status === 'pending' ? (
-                                                            <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                                                <button className="btn btn-primary btn-sm" style={{ background: 'var(--color-success)', borderColor: 'var(--color-success)' }} onClick={() => handleApprove(i)}>Approve</button>
-                                                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => handleReject(i.id)}>Reject</button>
-                                                                <button className="btn btn-ghost btn-sm" onClick={() => { 
-                                                                    setForm({ 
-                                                                        member_id: i.member_id, 
-                                                                        month: i.month, 
-                                                                        amount_paid: i.amount_paid.toString(), 
-                                                                        status: i.status, 
-                                                                        payment_date: i.payment_date || '', 
-                                                                        receipt_url: i.receipt_url || '',
-                                                                        transaction_id: i.transaction_id,
-                                                                        notes: i.notes || '' 
-                                                                    }); 
-                                                                    setEditId(i.id); 
-                                                                    setShowModal(true) 
-                                                                }}>Review</button>
-                                                                <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }} onClick={() => handleDelete(i)}><X size={14} /></button>
-                                                            </div>
-                                                        ) : (
-                                                            <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                                                <button className="btn btn-ghost btn-sm" onClick={() => { 
-                                                                    setForm({ 
-                                                                        member_id: i.member_id, 
-                                                                        month: i.month, 
-                                                                        amount_paid: i.amount_paid.toString(), 
-                                                                        status: i.status, 
-                                                                        payment_date: i.payment_date || '', 
-                                                                        receipt_url: i.receipt_url || '',
-                                                                        transaction_id: i.transaction_id,
-                                                                        notes: i.notes || '' 
-                                                                    }); 
-                                                                    setEditId(i.id); 
-                                                                    setShowModal(true) 
-                                                                }}>Review</button>
-                                                                <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }} onClick={() => handleDelete(i)}><X size={14} /></button>
-                                                            </div>
-                                                        )}
+                                                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                            <button className="btn btn-ghost btn-sm" onClick={() => { 
+                                                                setForm({ member_id: i.member_id, month: i.month, amount_paid: i.amount_paid.toString(), status: i.status, payment_date: i.payment_date || '', receipt_url: i.receipt_url || '', transaction_id: i.transaction_id, notes: i.notes || '' }); 
+                                                                setEditId(i.id); setShowModal(true); 
+                                                            }}>Review</button>
+                                                            <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }} onClick={() => handleDelete(i)}><X size={14} /></button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))
@@ -482,33 +572,7 @@ export default function KasManagementPage() {
                                 </table>
                             </div>
                         </div>
-                    </div>
-                    <div>
-                        <div className="card">
-                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Belum Bayar ({unpaidMembers.length})</h3>
-                            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                                {unpaidMembers.map(m => (
-                                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid var(--border-color)' }}>
-                                        <div>
-                                            <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{m.full_name}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{m.nim}</div>
-                                        </div>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => { 
-                                            setForm({ 
-                                                ...form, 
-                                                member_id: m.id, 
-                                                amount_paid: m.kas_monthly_amount?.toString() || '25000',
-                                                receipt_url: '',
-                                                transaction_id: null,
-                                                status: 'paid'
-                                            }); 
-                                            setShowModal(true) 
-                                        }}><Plus size={14} /></button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 {showModal && (
