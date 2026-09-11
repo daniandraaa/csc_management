@@ -474,7 +474,7 @@ export default function KasManagementPage() {
                                                         <td style={{ fontWeight: 600 }}>{formatCurrency(m.kas_monthly_amount || 25000)}</td>
                                                         <td>
                                                             <button className="btn btn-primary btn-sm" onClick={() => { 
-                                                                setForm({ ...form, member_id: m.id, amount_paid: m.kas_monthly_amount?.toString() || '25000', month: currentTargetMonth, receipt_url: '', transaction_id: null, status: 'paid' }); 
+                                                                setForm({ ...form, member_id: m.id, amount_paid: m.kas_monthly_amount?.toString() || '25000', month: currentTargetMonth || '', receipt_url: '', transaction_id: null, status: 'paid' }); 
                                                                 setShowModal(true); 
                                                             }}>Input Bayar</button>
                                                         </td>
