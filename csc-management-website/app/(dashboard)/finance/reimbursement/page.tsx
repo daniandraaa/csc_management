@@ -92,11 +92,40 @@ export default function ReimbursementPage() {
     const totalApproved = items.filter(i => i.status === 'approved' || i.status === 'paid').reduce((s, i) => s + i.amount, 0)
 
     async function handleCsvImport(rows: Record<string, string>[]) {
-        for (const row of rows) {
-            const member = members.find((m: any) => m.full_name.toLowerCase() === (row.member_name || '').toLowerCase())
-            if (member) await supabase.from('reimbursements').insert({ member_id: member.id, title: row.title || '', amount: parseFloat(row.amount) || 0, description: row.description || null, status: 'pending' })
+        let success = 0
+        let skipped = 0
+        const errors = []
+        for (const [index, row] of rows.entries()) {
+            const memberName = (row.member_name || '').trim()
+            const member = members.find((m: any) => m.full_name.toLowerCase() === memberName.toLowerCase())
+            if (member) {
+                const { error } = await supabase.from('reimbursements').insert({ 
+                    member_id: member.id, 
+                    title: row.title || '', 
+                    amount: parseFloat(row.amount?.replace(/[^0-9.-]+/g, "")) || 0, 
+                    description: row.description || null, 
+                    status: 'pending' 
+                })
+                if (error) {
+                    errors.push(`Baris ${index + 1}: Gagal insert - ${error.message}`)
+                    skipped++
+                } else {
+                    success++
+                }
+            } else {
+                errors.push(`Baris ${index + 1}: Anggota "${memberName}" tidak ditemukan di database. Pastikan nama sesuai.`)
+                skipped++
+            }
         }
         loadData()
+        
+        if (errors.length > 0) {
+            alert(`Beberapa data gagal diimport:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...dan ${errors.length - 5} lainnya` : ''}`)
+        }
+        
+        if (success === 0 && rows.length > 0) {
+            throw new Error("Semua baris gagal diimport")
+        }
     }
 
     async function handleDelete(id: string) {

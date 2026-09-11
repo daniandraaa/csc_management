@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Upload, X, FileSpreadsheet, Check, AlertTriangle, XCircle, CheckCircle2 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 type RowStatus = 'new' | 'duplicate' | 'similar'
 
@@ -15,32 +16,7 @@ interface CsvImportModalProps {
     title?: string
 }
 
-function parseCSV(text: string): { headers: string[]; rows: string[][] } {
-    const lines = text.trim().split(/\r?\n/)
-    if (lines.length < 2) return { headers: [], rows: [] }
-    
-    // Detect delimiter: check if first line has more semicolons than commas
-    const firstLine = lines[0]
-    const commaCount = (firstLine.match(/,/g) || []).length
-    const semiCount = (firstLine.match(/;/g) || []).length
-    const delimiter = semiCount > commaCount ? ';' : ','
-    
-    const headers = firstLine.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''))
-    const rows = lines.slice(1).map(line => {
-        const result: string[] = []
-        let current = ''
-        let inQuotes = false
-        for (const char of line) {
-            if (char === '"') { inQuotes = !inQuotes }
-            else if (char === delimiter && !inQuotes) { result.push(current.trim()); current = '' }
-            else { current += char }
-        }
-        result.push(current.trim())
-        return result
-    }).filter(row => row.some(cell => cell.length > 0))
-    return { headers, rows }
-}
-
+// Removed parseCSV in favor of xlsx library
 function similarity(a: string, b: string): number {
     if (!a || !b) return 0
     const aa = a.toLowerCase().trim()
@@ -55,7 +31,7 @@ function similarity(a: string, b: string): number {
     return matches / longer.length
 }
 
-export default function CsvImportModal({ isOpen, onClose, onImport, columns, existingData, matchFields, title = 'Import CSV' }: CsvImportModalProps) {
+export default function CsvImportModal({ isOpen, onClose, onImport, columns, existingData, matchFields, title = 'Import Data' }: CsvImportModalProps) {
     const [step, setStep] = useState<'upload' | 'mapping' | 'preview' | 'importing'>('upload')
     const [csvHeaders, setCsvHeaders] = useState<string[]>([])
     const [csvRows, setCsvRows] = useState<string[][]>([])
@@ -70,24 +46,47 @@ export default function CsvImportModal({ isOpen, onClose, onImport, columns, exi
         if (!file) return
         const reader = new FileReader()
         reader.onload = (ev) => {
-            const text = ev.target?.result as string
-            const { headers, rows } = parseCSV(text)
-            setCsvHeaders(headers)
-            setCsvRows(rows)
+            try {
+                const data = new Uint8Array(ev.target?.result as ArrayBuffer)
+                const workbook = XLSX.read(data, { type: 'array' })
+                const firstSheetName = workbook.SheetNames[0]
+                const worksheet = workbook.Sheets[firstSheetName]
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' }) as any[][]
+                
+                let headers: string[] = []
+                let rows: string[][] = []
 
-            // Auto-map columns by similarity
-            const autoMap: Record<string, string> = {}
-            columns.forEach(col => {
-                const best = headers.reduce((acc, h, i) => {
-                    const sim = Math.max(similarity(h, col.key), similarity(h, col.label))
-                    return sim > acc.sim ? { idx: i, sim, header: h } : acc
-                }, { idx: -1, sim: 0, header: '' })
-                if (best.sim > 0.5) autoMap[col.key] = best.header
-            })
-            setMapping(autoMap)
-            setStep('mapping')
+                if (jsonData.length > 0) {
+                    headers = (jsonData[0] || []).map(h => String(h || '').trim())
+                    rows = jsonData.slice(1).map(row => {
+                        const paddedRow = new Array(headers.length).fill('')
+                        for (let i = 0; i < Math.min(row.length, headers.length); i++) {
+                            paddedRow[i] = String(row[i] ?? '').trim()
+                        }
+                        return paddedRow
+                    }).filter(row => row.some(cell => cell.length > 0))
+                }
+
+                setCsvHeaders(headers)
+                setCsvRows(rows)
+
+                // Auto-map columns by similarity
+                const autoMap: Record<string, string> = {}
+                columns.forEach(col => {
+                    const best = headers.reduce((acc, h, i) => {
+                        const sim = Math.max(similarity(h, col.key), similarity(h, col.label))
+                        return sim > acc.sim ? { idx: i, sim, header: h } : acc
+                    }, { idx: -1, sim: 0, header: '' })
+                    if (best.sim > 0.5) autoMap[col.key] = best.header
+                })
+                setMapping(autoMap)
+                setStep('mapping')
+            } catch (err) {
+                console.error("Error parsing file:", err)
+                alert("Gagal membaca file. Pastikan format file adalah CSV atau Excel (.xlsx, .xls)")
+            }
         }
-        reader.readAsText(file)
+        reader.readAsArrayBuffer(file)
     }
 
     function processMapping() {
@@ -206,10 +205,10 @@ export default function CsvImportModal({ isOpen, onClose, onImport, columns, exi
                         <div style={{ textAlign: 'center', padding: '2rem' }}>
                             <div style={{ border: '2px dashed var(--color-border-secondary)', borderRadius: 'var(--radius-lg)', padding: '3rem 2rem', cursor: 'pointer', transition: 'all 0.15s' }} onClick={() => fileRef.current?.click()}>
                                 <Upload size={36} style={{ color: '#dc2626', margin: '0 auto 1rem' }} />
-                                <p style={{ fontWeight: 600, marginBottom: 4 }}>Klik atau drop file CSV</p>
-                                <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-tertiary)' }}>Format: .csv (comma-separated)</p>
+                                <p style={{ fontWeight: 600, marginBottom: 4 }}>Klik atau drop file Excel/CSV</p>
+                                <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-tertiary)' }}>Format: .xlsx, .xls, .csv</p>
                             </div>
-                            <input ref={fileRef} type="file" accept=".csv" onChange={handleFile} style={{ display: 'none' }} />
+                            <input ref={fileRef} type="file" accept=".csv, .xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" onChange={handleFile} style={{ display: 'none' }} />
                             <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--color-surface-tertiary)', borderRadius: 'var(--radius-md)', textAlign: 'left' }}>
                                 <p style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 8 }}>📋 Kolom yang diharapkan:</p>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -227,7 +226,7 @@ export default function CsvImportModal({ isOpen, onClose, onImport, columns, exi
                     {step === 'mapping' && (
                         <div>
                             <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
-                                Cocokkan kolom CSV dengan kolom database. Ditemukan <strong>{csvHeaders.length}</strong> kolom dan <strong>{csvRows.length}</strong> baris.
+                                Cocokkan kolom file dengan kolom database. Ditemukan <strong>{csvHeaders.length}</strong> kolom dan <strong>{csvRows.length}</strong> baris.
                             </p>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '0.5rem', alignItems: 'center' }}>
                                 {columns.map(col => (

@@ -180,39 +180,77 @@ export default function KasManagementPage() {
     )
 
     async function handleCsvImport(rows: Record<string, string>[]) {
-        for (const row of rows) {
+        let success = 0
+        let skipped = 0
+        const errors = []
+
+        for (const [index, row] of rows.entries()) {
+            const memberName = (row.member_name || '').trim()
             const member = members.find(m => 
-                m.full_name.toLowerCase() === (row.member_name || '').toLowerCase()
+                m.full_name.toLowerCase() === memberName.toLowerCase()
             )
+            
             if (member) {
-                // If paid, create tx
                 let txId = null
-                if (row.status === 'paid' || !row.status) {
+                const amount = parseFloat(row.amount?.replace(/[^0-9.-]+/g, "")) || 25000
+                const rawDate = (row.payment_date || '').toLowerCase().trim()
+                const paymentDate = (rawDate === 'nan' || rawDate === '') ? new Date().toISOString().split('T')[0] : row.payment_date.trim()
+                let status = (row.status || 'paid').toLowerCase().trim()
+                if (status === 'lunas') status = 'paid'
+                if (status === 'sebagian') status = 'partial'
+                if (status === 'menunggu' || status === 'pending') status = 'pending'
+                const monthStr = row.month ? (row.month.trim().length === 7 ? `${row.month.trim()}-01` : row.month.trim()) : form.month
+
+                if (status === 'paid' || status === 'partial') {
                     const txPayload = {
                         type: 'income',
                         category: 'Kas Anggota',
-                        description: `Kas Anggota (Import): ${member.full_name} - ${(row.month || form.month).substring(0, 7)}`,
-                        amount: parseFloat(row.amount) || 25000,
-                        transaction_date: row.payment_date || new Date().toISOString().split('T')[0],
+                        description: `Kas Anggota (Import): ${member.full_name} - ${monthStr.substring(0, 7)}`,
+                        amount: amount,
+                        transaction_date: paymentDate,
                         member_id: member.id
                     }
-                    const { data: txData } = await supabase.from('financial_transactions').insert(txPayload).select().single()
+                    const { data: txData, error: txError } = await supabase.from('financial_transactions').insert(txPayload).select().single()
+                    if (txError) {
+                        errors.push(`Baris ${index + 1}: Gagal insert transaksi - ${txError.message}`)
+                        skipped++
+                        continue
+                    }
                     txId = txData?.id
                 }
 
-                await supabase.from('member_kas').insert({
+                const { error: kasError } = await supabase.from('member_kas').insert({
                     member_id: member.id,
-                    month: row.month ? `${row.month}-01` : form.month,
-                    amount_paid: parseFloat(row.amount) || 25000,
-                    status: row.status || 'paid',
-                    payment_date: row.payment_date || new Date().toISOString().split('T')[0],
+                    month: monthStr,
+                    amount_paid: amount,
+                    status: status,
+                    payment_date: paymentDate,
                     notes: row.notes || null,
                     transaction_id: txId
                 })
+
+                if (kasError) {
+                    errors.push(`Baris ${index + 1}: Gagal insert kas - ${kasError.message} (Nilai status: '${status}')`)
+                    skipped++
+                } else {
+                    success++
+                }
+            } else {
+                errors.push(`Baris ${index + 1}: Anggota "${memberName}" tidak ditemukan di database. Pastikan nama sesuai.`)
+                skipped++
             }
         }
+        
         loadData()
         setShowCsvImport(false)
+
+        if (errors.length > 0) {
+            alert(`Beberapa data gagal diimport:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...dan ${errors.length - 5} lainnya` : ''}`)
+        }
+        
+        if (success === 0 && rows.length > 0) {
+            throw new Error("Semua baris gagal diimport")
+        }
     }
 
     const KAS_CSV_COLUMNS = [
