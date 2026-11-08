@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { useCurrentUser } from '@/lib/auth'
+import { Season } from '@/lib/types'
 import { getVisibleSections, canManageModule } from '@/lib/rbac'
 import { getInitials } from '@/lib/utils'
 import { hashPassword, verifyPassword } from '@/lib/password'
@@ -96,6 +97,7 @@ const navSections = [
         title: 'Administrasi',
         items: [
             { label: 'Dashboard', href: '/administrasi', icon: LayoutDashboard, exact: true },
+            { label: 'Kelola Periode & Seasons', href: '/administrasi/seasons', icon: CalendarClock },
             { label: 'Dokumen Administrasi', href: '/administrasi/dokumen', icon: FileStack },
             { label: 'Template Dokumen', href: '/administrasi/templates', icon: FileText },
             { label: 'Riwayat Revisi', href: '/admin-review', icon: Clock, badgeKey: 'admin_review' },
@@ -117,7 +119,7 @@ const roleColors: Record<string, { bg: string; text: string }> = {
 
 export default function Sidebar() {
     const pathname = usePathname()
-    const { currentUser, logout } = useCurrentUser()
+    const { currentUser, currentSeason, availableSeasons, switchSeason, logout } = useCurrentUser()
     const [showPasswordModal, setShowPasswordModal] = useState(false)
     const [oldPassword, setOldPassword] = useState('')
     const [newPw, setNewPw] = useState('')
@@ -276,6 +278,51 @@ export default function Sidebar() {
                 >
                     <X size={18} />
                 </button>
+            </div>
+
+            {/* Season Selector Bar in Sidebar */}
+            <div style={{
+                margin: '0.5rem 0.75rem 0.75rem',
+                padding: '0.625rem 0.75rem',
+                background: 'linear-gradient(135deg, rgba(154, 52, 18, 0.08) 0%, rgba(185, 28, 28, 0.04) 100%)',
+                border: '1px solid rgba(154, 52, 18, 0.15)',
+                borderRadius: '0.75rem',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                    <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#9A3412', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Kabinet & Seasons
+                    </span>
+                    {currentSeason?.is_active && (
+                        <span style={{ fontSize: '0.625rem', padding: '0.1rem 0.4rem', borderRadius: '9999px', background: '#dcfce7', color: '#15803d', fontWeight: 600 }}>
+                            Aktif
+                        </span>
+                    )}
+                </div>
+                <select
+                    value={currentSeason?.id || ''}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => switchSeason(e.target.value)}
+                    style={{
+                        width: '100%',
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        padding: '0.35rem 0.5rem',
+                        borderRadius: '0.5rem',
+                        border: '1px solid rgba(154, 52, 18, 0.25)',
+                        background: '#ffffff',
+                        color: '#431407',
+                        cursor: 'pointer',
+                        outline: 'none',
+                    }}
+                >
+                    {availableSeasons.map((s: Season) => (
+                        <option key={s.id} value={s.id}>
+                            {s.cabinet_name} ({s.name})
+                        </option>
+                    ))}
+                </select>
+                <div style={{ fontSize: '0.6875rem', color: '#78716c', marginTop: '0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {currentSeason?.motto || 'Pusat Ekosistem Bisnis Mahasiswa'}
+                </div>
             </div>
             <nav className="sidebar-nav">
                 {filteredSections.map((section) => (

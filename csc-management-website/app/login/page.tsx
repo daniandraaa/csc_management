@@ -39,10 +39,18 @@ export default function LoginPage() {
     const [showNewPassword, setShowNewPassword] = useState(false)
     const [error, setError] = useState('')
     const [mounted, setMounted] = useState(false)
-    const { login } = useCurrentUser()
+    const { login, availableSeasons, currentSeason } = useCurrentUser()
+    const [selectedSeasonId, setSelectedSeasonId] = useState<string>('')
 
     // Prevent hydration mismatch - only render after client mount
     useEffect(() => { setMounted(true) }, [])
+
+    // Sync default season
+    useEffect(() => {
+        if (currentSeason?.id && !selectedSeasonId) {
+            setSelectedSeasonId(currentSeason.id)
+        }
+    }, [currentSeason, selectedSeasonId])
 
     const [passwordColumnsExist, setPasswordColumnsExist] = useState(true)
 
@@ -98,7 +106,7 @@ export default function LoginPage() {
         if (!passwordColumnsExist || !member.password_hash) {
             if (!passwordColumnsExist) {
                 setLoggingIn(true)
-                await login(selectedId)
+                await login(selectedId, selectedSeasonId)
             } else {
                 setStep('setup')
             }
@@ -136,7 +144,7 @@ export default function LoginPage() {
             return
         }
 
-        await login(selectedId)
+        await login(selectedId, selectedSeasonId)
     }
 
     async function handleSetupPassword() {
@@ -293,6 +301,40 @@ export default function LoginPage() {
                                 </div>
                             ) : (
                                 <>
+                                    {/* Season / Kabinet Selector */}
+                                    {availableSeasons.length > 0 && (
+                                        <div style={{ marginBottom: '1.25rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                                                <label style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#9a3412', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                    <Building2 size={15} /> Periode / Kabinet
+                                                </label>
+                                                {availableSeasons.find((s: any) => s.id === selectedSeasonId)?.is_active && (
+                                                    <span style={{ fontSize: '0.625rem', background: '#dcfce7', color: '#16a34a', padding: '0.1rem 0.45rem', borderRadius: 9999, fontWeight: 700 }}>
+                                                        Kabinet Aktif
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <select
+                                                value={selectedSeasonId}
+                                                onChange={(e: any) => setSelectedSeasonId(e.target.value)}
+                                                style={{
+                                                    ...inputStyle,
+                                                    cursor: 'pointer',
+                                                    borderColor: 'rgba(154, 52, 18, 0.3)',
+                                                    background: '#fffaf5',
+                                                    fontWeight: 600,
+                                                    color: '#431407'
+                                                }}
+                                            >
+                                                {availableSeasons.map((s: any) => (
+                                                    <option key={s.id} value={s.id}>
+                                                        {s.cabinet_name} — {s.name} ({s.status === 'archived' ? 'Arsip' : 'Aktif'})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+
                                     <div style={{ marginBottom: '1rem' }}>
                                         <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>
                                             Pilih Akun

@@ -2,18 +2,37 @@
 
 import { useState, useEffect, ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { AuthContext, CurrentUser, getStoredUser, loginUser, logoutUser } from '@/lib/auth'
+import { 
+    AuthContext, 
+    CurrentUser, 
+    getStoredUser, 
+    getStoredSeason, 
+    fetchSeasons, 
+    loginUser, 
+    logoutUser 
+} from '@/lib/auth'
+import { Season } from '@/lib/types'
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
     const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+    const [currentSeason, setCurrentSeason] = useState<Season | null>(null)
+    const [availableSeasons, setAvailableSeasons] = useState<Season[]>([])
     const [loading, setLoading] = useState(true)
     const pathname = usePathname()
     const router = useRouter()
 
     useEffect(() => {
-        const stored = getStoredUser()
-        setCurrentUser(stored)
-        setLoading(false)
+        async function initAuth() {
+            const storedUser = getStoredUser()
+            const storedSeason = getStoredSeason()
+            const { active, all } = await fetchSeasons()
+
+            setAvailableSeasons(all)
+            setCurrentSeason(storedSeason || active)
+            setCurrentUser(storedUser)
+            setLoading(false)
+        }
+        initAuth()
     }, [])
 
     useEffect(() => {
@@ -29,12 +48,35 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, [loading, currentUser, pathname, router])
 
-    async function login(memberId: string) {
-        const user = await loginUser(memberId)
+    async function login(memberId: string, seasonId?: string) {
+        const targetSeasonId = seasonId || currentSeason?.id
+        const user = await loginUser(memberId, targetSeasonId)
         if (user) {
             setCurrentUser(user)
+            if (targetSeasonId && targetSeasonId !== currentSeason?.id) {
+                const s = availableSeasons.find((item: Season) => item.id === targetSeasonId)
+                if (s) setCurrentSeason(s)
+            }
             router.push('/dashboard')
         }
+    }
+
+    async function switchSeason(seasonId: string) {
+        const s = availableSeasons.find((item: Season) => item.id === seasonId)
+        if (!s) return
+
+        setCurrentSeason(s)
+        localStorage.setItem('csc_current_season', JSON.stringify(s))
+
+        // If user is logged in, reload their membership profile under the new season
+        if (currentUser) {
+            const updatedUser = await loginUser(currentUser.id, seasonId)
+            if (updatedUser) {
+                setCurrentUser(updatedUser)
+            }
+        }
+        // Refresh router so current page data re-queries with new season scope
+        router.refresh()
     }
 
     function logout() {
@@ -55,14 +97,22 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
                         width: 48, height: 48, objectFit: 'contain',
                         margin: '0 auto 1rem',
                     }} />
-                    <p style={{ color: '#64748b', fontSize: 14 }}>Loading...</p>
+                    <p style={{ color: '#64748b', fontSize: 14 }}>Loading Multi-Season CSC...</p>
                 </div>
             </div>
         )
     }
 
     return (
-        <AuthContext.Provider value={{ currentUser, loading, login, logout }}>
+        <AuthContext.Provider value={{ 
+            currentUser, 
+            currentSeason, 
+            availableSeasons, 
+            loading, 
+            login, 
+            logout, 
+            switchSeason 
+        }}>
             {children}
         </AuthContext.Provider>
     )

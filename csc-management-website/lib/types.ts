@@ -2,11 +2,44 @@
 // CSC Management Website - TypeScript Types
 // ============================================
 
+export interface Season {
+    id: string
+    name: string
+    cabinet_name: string
+    motto: string | null
+    year_start: number
+    year_end: number
+    theme_color: string | null
+    logo_url: string | null
+    is_active: boolean
+    status: 'planning' | 'active' | 'archived'
+    feature_flags: Record<string, boolean>
+    archived_at: string | null
+    created_at: string
+    updated_at: string
+}
+
+export interface SeasonMembership {
+    id: string
+    season_id: string
+    season?: Season
+    member_id: string
+    member?: Member
+    department: string | null
+    role: 'BOE' | 'C Level' | 'Secretary' | 'Staff' | 'Administration' | 'Business Partner'
+    position: string | null
+    is_active: boolean
+    joined_at: string
+    created_at: string
+    updated_at: string
+}
+
 export interface Department {
     id: string
     name: string
     slug: string
     description: string | null
+    season_id?: string | null
     created_at: string
 }
 
@@ -22,6 +55,8 @@ export interface Member {
     role: 'BOE' | 'C Level' | 'Secretary' | 'Staff' | 'Administration' | 'Business Partner'
     position: string | null
     is_active: boolean
+    current_season_id?: string | null
+    season_membership?: SeasonMembership
     joined_at: string
     created_at: string
     updated_at: string
