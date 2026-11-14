@@ -82,11 +82,24 @@ export async function fetchSeasons(): Promise<{ active: Season | null; all: Seas
 }
 
 export async function loginUser(memberId: string, seasonId?: string): Promise<CurrentUser | null> {
-    const { data: memberData } = await supabase
+    // Attempt query with current_season_id, fallback if column does not exist yet
+    let memberData: any = null
+    const { data: mWithSeason, error: errSeason } = await supabase
         .from('members')
         .select('id, full_name, email, role, department, position, photo_url, whatsapp, kas_monthly_amount, current_season_id')
         .eq('id', memberId)
         .single()
+
+    if (!errSeason && mWithSeason) {
+        memberData = mWithSeason
+    } else {
+        const { data: mFallback } = await supabase
+            .from('members')
+            .select('id, full_name, email, role, department, position, photo_url, whatsapp, kas_monthly_amount')
+            .eq('id', memberId)
+            .single()
+        memberData = mFallback
+    }
 
     if (!memberData) return null
 
@@ -94,11 +107,14 @@ export async function loginUser(memberId: string, seasonId?: string): Promise<Cu
     let effectiveRole = memberData.role
     let effectiveDept = memberData.department
     let effectivePos = memberData.position
-    let targetSeasonId = seasonId || memberData.current_season_id
+    let targetSeasonId = seasonId || memberData.current_season_id || null
 
     let seasonDetails: Season | null = null
 
-    if (targetSeasonId) {
+    if (targetSeasonId === 'default-season-2025-2026') {
+        const { active } = await fetchSeasons()
+        seasonDetails = active
+    } else if (targetSeasonId) {
         // Try to get season details
         const { data: sData } = await supabase
             .from('seasons')
