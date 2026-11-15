@@ -295,12 +295,12 @@ export function isSecretary(user: CurrentUser | null): boolean {
 export function getVisibleSections(user: CurrentUser | null): string[] {
     if (!user) return []
     if (user.role === 'BOE' || user.department === 'Executive' || user.role === 'Secretary' || user.role === 'Manager') {
-        return ['Overview', 'Human Resources', 'Operating', 'Finance', 'Business', 'Marketing & Branding', 'Public Relation', 'Administrasi']
+        return ['Overview', 'Human Resources', 'Operating', 'Finance', 'Business', 'Marketing & Branding', 'Public Relation', 'BOE / Kepemimpinan', 'Administrasi']
     }
 
     // C Level from any department can see HR section (for attendance generation)
     if (user.role === 'C Level') {
-        return ['Overview', 'Human Resources', 'Operating', 'Finance', 'Business', 'Marketing & Branding', 'Public Relation', 'Administrasi']
+        return ['Overview', 'Human Resources', 'Operating', 'Finance', 'Business', 'Marketing & Branding', 'Public Relation', 'BOE / Kepemimpinan', 'Administrasi']
     }
 
     const sections: string[] = ['Overview'] // Everyone sees overview
