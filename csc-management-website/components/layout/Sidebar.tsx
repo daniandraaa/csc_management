@@ -94,10 +94,15 @@ const navSections = [
         ],
     },
     {
+        title: 'BOE / Kepemimpinan',
+        items: [
+            { label: 'Kelola Periode & Seasons', href: '/boe/seasons', icon: CalendarClock },
+        ],
+    },
+    {
         title: 'Administrasi',
         items: [
             { label: 'Dashboard', href: '/administrasi', icon: LayoutDashboard, exact: true },
-            { label: 'Kelola Periode & Seasons', href: '/administrasi/seasons', icon: CalendarClock },
             { label: 'Dokumen Administrasi', href: '/administrasi/dokumen', icon: FileStack },
             { label: 'Template Dokumen', href: '/administrasi/templates', icon: FileText },
             { label: 'Riwayat Revisi', href: '/admin-review', icon: Clock, badgeKey: 'admin_review' },
