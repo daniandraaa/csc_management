@@ -26,7 +26,7 @@ export interface SeasonMembership {
     member_id: string
     member?: Member
     department: string | null
-    role: 'BOE' | 'C Level' | 'Secretary' | 'Staff' | 'Administration' | 'Business Partner'
+    role: 'BOE' | 'C Level' | 'Secretary' | 'Staff' | 'Administration' | 'Business Partner' | 'Manager'
     position: string | null
     is_active: boolean
     joined_at: string
@@ -52,7 +52,7 @@ export interface Member {
     photo_url: string | null
     department: string | null
     nim: string | null
-    role: 'BOE' | 'C Level' | 'Secretary' | 'Staff' | 'Administration' | 'Business Partner'
+    role: 'BOE' | 'C Level' | 'Secretary' | 'Staff' | 'Administration' | 'Business Partner' | 'Manager'
     position: string | null
     is_active: boolean
     current_season_id?: string | null

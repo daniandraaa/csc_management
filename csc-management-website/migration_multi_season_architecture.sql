@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS public.season_memberships (
     season_id UUID REFERENCES public.seasons(id) ON DELETE CASCADE NOT NULL,
     member_id UUID REFERENCES public.members(id) ON DELETE CASCADE NOT NULL,
     department TEXT,                            -- Departemen di season tersebut
-    role TEXT NOT NULL DEFAULT 'Staff' CHECK (role IN ('BOE', 'C Level', 'Secretary', 'Administration', 'Staff', 'Business Partner')),
+    role TEXT NOT NULL DEFAULT 'Staff' CHECK (role IN ('BOE', 'C Level', 'Secretary', 'Administration', 'Staff', 'Business Partner', 'Manager')),
     position TEXT,                              -- Nama jabatan spesifik (e.g. "Head of Operating", "Staff HR")
     is_active BOOLEAN DEFAULT true,             -- Status keaktifan di season tersebut
     joined_at DATE DEFAULT CURRENT_DATE,
