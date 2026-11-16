@@ -185,7 +185,6 @@ export async function GET() {
     const { data: recentNotifs } = await supabase
         .from('admin_notifications')
         .select('*')
-  .eq('season_id', currentSeasonId)
         .order('sent_at', { ascending: false })
         .limit(20)
 

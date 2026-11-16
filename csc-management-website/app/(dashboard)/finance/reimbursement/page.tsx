@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useCurrentUser } from '@/lib/auth'
+import { useState, useEffect, useContext } from 'react'
+import { supabase, getSeasonReimbursements } from '@/lib/supabase'
+import { useCurrentUser, AuthContext } from '@/lib/auth'
 import { canManageModule } from '@/lib/rbac'
 import { getStatusColor, getStatusLabel, formatDateShort, formatCurrency } from '@/lib/utils'
 import { Receipt, Plus, X, Search, Upload, Download, FileText, CheckCircle2 } from 'lucide-react'
@@ -12,6 +12,7 @@ import Linkify from '@/components/Linkify'
 
 export default function ReimbursementPage() {
     const { currentUser } = useCurrentUser()
+    const { currentSeason } = useContext(AuthContext)
     const [items, setItems] = useState<any[]>([])
     const [members, setMembers] = useState<any[]>([])
     const [programs, setPrograms] = useState<any[]>([])
@@ -23,20 +24,22 @@ export default function ReimbursementPage() {
 
     const canManage = canManageModule(currentUser, 'reimbursement')
 
-    useEffect(() => { if (currentUser) loadData() }, [currentUser])
+    useEffect(() => { if (currentUser && currentSeason) loadData() }, [currentUser, currentSeason?.id])
 
     async function loadData() {
         setLoading(true)
-        let query = supabase.from('reimbursements').select('*, member:members!reimbursements_member_id_fkey(full_name), program:programs(name)').order('created_at', { ascending: false })
+        const { data } = await getSeasonReimbursements(currentSeason?.id)
         
         if (!canManage) {
-            query = query.eq('member_id', currentUser?.id)
+            const filtered = data?.filter((r: any) => r.member_id === currentUser?.id) || []
+            const { data: m } = await supabase.from('members').select('id,full_name')
+            const { data: p } = await supabase.from('programs').select('id,name')
+            setItems(filtered); setMembers(m || []); setPrograms(p || []); setLoading(false)
+        } else {
+            const { data: m } = await supabase.from('members').select('id,full_name')
+            const { data: p } = await supabase.from('programs').select('id,name')
+            setItems(data || []); setMembers(m || []); setPrograms(p || []); setLoading(false)
         }
-        
-        const { data } = await query
-        const { data: m } = await supabase.from('members').select('id,full_name')
-        const { data: p } = await supabase.from('programs').select('id,name')
-        setItems(data || []); setMembers(m || []); setPrograms(p || []); setLoading(false)
     }
 
     async function handleSubmit(e: React.FormEvent) {
@@ -47,6 +50,7 @@ export default function ReimbursementPage() {
             amount: parseFloat(form.amount), 
             reimbursed_amount: finalAmount,
             program_id: form.program_id || null,
+            season_id: currentSeason?.id,
             paid_at: form.status === 'paid' ? new Date().toISOString() : (editId ? items.find(i => i.id === editId)?.paid_at : null)
         }
         
@@ -104,6 +108,7 @@ export default function ReimbursementPage() {
                     title: row.title || '', 
                     amount: parseFloat(row.amount?.replace(/[^0-9.-]+/g, "")) || 0, 
                     description: row.description || null, 
+                    season_id: currentSeason?.id,
                     status: 'pending' 
                 })
                 if (error) {

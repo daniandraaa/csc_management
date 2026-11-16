@@ -29,8 +29,7 @@ export default function TemplatesPage() {
 
     async function loadTemplates() {
         setLoading(true)
-        const { data } = await supabase.from('document_templates').select('*')
-  .eq('season_id', currentSeasonId).order('created_at', { ascending: false })
+        const { data } = await supabase.from('document_templates').select('*').order('created_at', { ascending: false })
         if (data) setTemplates(data)
         setLoading(false)
     }
@@ -40,8 +39,7 @@ export default function TemplatesPage() {
 
     async function handleDelete(id: string) {
         if (!confirm('Apakah Anda yakin ingin menghapus template ini?')) return
-        const { error } = await supabase.from('document_templates').delete()
-  .eq('season_id', currentSeasonId).eq('id', id)
+        const { error } = await supabase.from('document_templates').delete().eq('id', id)
         if (!error) setTemplates(templates.filter(t => t.id !== id))
         else alert('Gagal menghapus template: ' + error?.message)
     }
@@ -56,8 +54,7 @@ export default function TemplatesPage() {
             if (!error && data) { setTemplates(templates.map(t => t.id === newTemplate.id ? data[0] : t)); setShowModal(false) }
             else alert('Gagal mengubah template: ' + error?.message)
         } else {
-            const { data, error } = await supabase.from('document_templates').insert([{
-    season_id: currentSeasonId, name: newTemplate.name, type: newTemplate.type, size: newTemplate.size, file_url: newTemplate.file_url }]).select()
+            const { data, error } = await supabase.from('document_templates').insert([{ name: newTemplate.name, type: newTemplate.type, size: newTemplate.size, file_url: newTemplate.file_url }]).select()
             setSaving(false)
             if (!error && data) { setTemplates([data[0], ...templates]); setShowModal(false) }
             else alert('Gagal menambah template: ' + error?.message)

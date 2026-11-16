@@ -21,8 +21,7 @@ export default function AiFaqPage() {
 
     async function loadData() {
         setLoading(true)
-        const { data } = await supabase.from('ai_faqs').select('*')
-  .eq('season_id', currentSeasonId).order('created_at', { ascending: false })
+        const { data } = await supabase.from('ai_faqs').select('*').order('created_at', { ascending: false })
         setFaqs(data || [])
         setLoading(false)
     }
@@ -51,8 +50,7 @@ export default function AiFaqPage() {
     async function handleDelete(id: string) {
         if (!canManage) return
         if (confirm('Hapus pengetahuan AI ini?')) {
-            await supabase.from('ai_faqs').delete()
-  .eq('season_id', currentSeasonId).eq('id', id)
+            await supabase.from('ai_faqs').delete().eq('id', id)
             loadData()
         }
     }

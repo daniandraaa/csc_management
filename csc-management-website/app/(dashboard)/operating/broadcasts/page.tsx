@@ -41,8 +41,7 @@ export default function BroadcastsPage() {
 
     async function loadData() {
         setLoading(true)
-        const { data } = await supabase.from('broadcast_schedules').select('*')
-  .eq('season_id', currentSeasonId).order('broadcast_date', { ascending: false }).order('broadcast_time', { ascending: true })
+        const { data } = await supabase.from('broadcast_schedules').select('*').order('broadcast_date', { ascending: false }).order('broadcast_time', { ascending: true })
         setBroadcasts(data || [])
         setLoading(false)
     }
@@ -69,8 +68,7 @@ export default function BroadcastsPage() {
 
     async function handleDelete(id: string) {
         if (confirm('Hapus jadwal broadcast ini?')) {
-            await supabase.from('broadcast_schedules').delete()
-  .eq('season_id', currentSeasonId).eq('id', id)
+            await supabase.from('broadcast_schedules').delete().eq('id', id)
             loadData()
         }
     }

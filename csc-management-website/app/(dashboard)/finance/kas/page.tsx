@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useEffect, useContext } from 'react'
+import { supabase, getSeasonTransactions } from '@/lib/supabase'
+import { AuthContext } from '@/lib/auth'
 import { formatCurrency, formatDateShort, calculateKasFine } from '@/lib/utils'
 import { DollarSign, Plus, X, Search, Filter, Download, FileText, AlertTriangle, Upload } from 'lucide-react'
 import { exportToPdf, exportToCsv } from '@/lib/export'
@@ -47,13 +48,20 @@ export default function KasManagementPage() {
         notes: '' 
     })
     const [editId, setEditId] = useState<string | null>(null)
+    
+    const { currentSeason } = useContext(AuthContext)
 
-    useEffect(() => { loadData() }, [filterMonth, filterYear])
+    useEffect(() => { loadData() }, [filterMonth, filterYear, currentSeason?.id])
 
     async function loadData() {
         setLoading(true)
         
+        // Load kas records filtered by season
         let query = supabase.from('member_kas').select('*, member:members(full_name, nim)')
+        
+        if (currentSeason?.id) {
+            query = query.eq('season_id', currentSeason.id)
+        }
         
         if (filterYear !== 'all' && filterMonth !== 'all') {
             const startDate = `${filterYear}-${filterMonth}-01`
@@ -61,16 +69,19 @@ export default function KasManagementPage() {
         } else if (filterYear !== 'all') {
             // All months in a year
             query = query.gte('month', `${filterYear}-01-01`).lte('month', `${filterYear}-12-31`)
-        } else if (filterMonth !== 'all') {
-            // A specific month across all years
-            // This is complex in Supabase, better to fetch all and filter in JS if needed,
-            // or just fetch all for now since data isn't huge.
         }
 
         const { data, error } = await query
         if (error) console.error("Error loading kas:", error)
         
-        const { data: m } = await supabase.from('members').select('id, full_name, nim, kas_monthly_amount').order('full_name')
+        // Load members with season filter
+        let memberQuery = supabase.from('members').select('id, full_name, nim, kas_monthly_amount')
+        
+        if (currentSeason?.id) {
+            memberQuery = memberQuery.eq('season_id', currentSeason.id)
+        }
+        
+        const { data: m } = await memberQuery.order('full_name')
         
         setItems(data || [])
         setMembers(m || [])
@@ -82,7 +93,8 @@ export default function KasManagementPage() {
         const payload = { 
             ...form, 
             amount_paid: parseFloat(form.amount_paid),
-            month: form.month // Ensure it's YYYY-MM-01
+            month: form.month, // Ensure it's YYYY-MM-01
+            season_id: currentSeason?.id
         }
         
         let txId = form.transaction_id
@@ -95,7 +107,8 @@ export default function KasManagementPage() {
                 description: `Kas Anggota: ${member?.full_name} - ${form.month.substring(0, 7)}`,
                 amount: parseFloat(form.amount_paid),
                 transaction_date: form.payment_date || new Date().toISOString().split('T')[0],
-                member_id: form.member_id
+                member_id: form.member_id,
+                season_id: currentSeason?.id
             }
 
             if (txId) {
@@ -138,7 +151,8 @@ export default function KasManagementPage() {
             description: `Kas Anggota: ${member?.full_name} - ${item.month.substring(0, 7)}`,
             amount: item.amount_paid,
             transaction_date: new Date().toISOString().split('T')[0],
-            member_id: item.member_id
+            member_id: item.member_id,
+            season_id: currentSeason?.id
         }
         
         const { data: txData } = await supabase.from('financial_transactions').insert(txPayload).select().single()
@@ -208,7 +222,8 @@ export default function KasManagementPage() {
                         description: `Kas Anggota (Import): ${member.full_name} - ${monthStr.substring(0, 7)}`,
                         amount: amount,
                         transaction_date: paymentDate,
-                        member_id: member.id
+                        member_id: member.id,
+                        season_id: currentSeason?.id
                     }
                     const { data: txData, error: txError } = await supabase.from('financial_transactions').insert(txPayload).select().single()
                     if (txError) {
@@ -226,7 +241,8 @@ export default function KasManagementPage() {
                     status: status,
                     payment_date: paymentDate,
                     notes: row.notes || null,
-                    transaction_id: txId
+                    transaction_id: txId,
+                    season_id: currentSeason?.id
                 })
 
                 if (kasError) {

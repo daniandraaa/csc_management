@@ -35,7 +35,6 @@ export default function OverviewPerformancePage() {
         setLoading(true)
         const { data } = await supabase.from('performance_rankings')
             .select('*, member:members!performance_rankings_member_id_fkey(id,full_name,department,role)')
-  .eq('season_id', currentSeasonId)
             .order('score', { ascending: false })
         setRankings(data || [])
         setLoading(false)

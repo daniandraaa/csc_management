@@ -111,8 +111,7 @@ export default function SOPPage() {
         await supabase.from('sop_guides').insert(payload)
     }
 
-    async function handleDelete(id: string) { if (confirm('Hapus SOP?')) { await supabase.from('sop_guides').delete()
-  .eq('season_id', currentSeasonId).eq('id', id); loadData() } }
+    async function handleDelete(id: string) { if (confirm('Hapus SOP?')) { await supabase.from('sop_guides').delete().eq('id', id); loadData() } }
 
     const filtered = sops.filter((s: any) => !filterDept || s.department_id === filterDept)
     const exportData = filtered.map((s: any) => ({ ...s, _dept: s.department?.name || '-' }))

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useEffect, useContext } from 'react'
+import { supabase, getSeasonTransactions, getSeasonPrograms } from '@/lib/supabase'
+import { AuthContext } from '@/lib/auth'
 import { formatCurrency, formatDateShort } from '@/lib/utils'
 import { DollarSign, Plus, X, TrendingUp, TrendingDown, Upload, FileText, Download } from 'lucide-react'
 import CsvImportModal from '@/components/CsvImportModal'
@@ -23,6 +24,7 @@ const PDF_COLUMNS = [
 ]
 
 export default function TransactionsPage() {
+    const { currentSeason } = useContext(AuthContext)
     const [txns, setTxns] = useState<any[]>([])
     const [programs, setPrograms] = useState<any[]>([])
     const [members, setMembers] = useState<any[]>([])
@@ -33,13 +35,14 @@ export default function TransactionsPage() {
     const [form, setForm] = useState({ program_id: '', type: 'expense', category: '', description: '', amount: '', transaction_date: '', receipt_url: '' })
     const [editId, setEditId] = useState<string | null>(null)
 
-    useEffect(() => { loadData() }, [])
+    useEffect(() => { loadData() }, [currentSeason?.id])
 
     async function loadData() {
         setLoading(true)
-        const { data } = await supabase.from('financial_transactions').select('*, program:programs(name)').order('transaction_date', { ascending: false })
-        const { data: p } = await supabase.from('programs').select('id,name')
-        const { data: m } = await supabase.from('members').select('id,full_name')
+        // ✅ FIX: Use season-aware helpers
+        const { data } = await getSeasonTransactions(currentSeason?.id)
+        const { data: p } = await getSeasonPrograms(currentSeason?.id)
+        const { data: m } = await supabase.from('members').select('id,full_name').eq('season_id', currentSeason?.id)
         setTxns(data || []); setPrograms(p || []); setMembers(m || []); setLoading(false)
     }
 
