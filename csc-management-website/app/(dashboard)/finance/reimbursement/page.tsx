@@ -28,7 +28,7 @@ export default function ReimbursementPage() {
 
     async function loadData() {
         setLoading(true)
-        const { data } = await getSeasonReimbursements(currentSeason?.id)
+        const { data } = await getSeasonReimbursements(currentSeason?.id || null)
         
         if (!canManage) {
             const filtered = data?.filter((r: any) => r.member_id === currentUser?.id) || []

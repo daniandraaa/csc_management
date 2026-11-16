@@ -40,8 +40,8 @@ export default function TransactionsPage() {
     async function loadData() {
         setLoading(true)
         // ✅ FIX: Use season-aware helpers
-        const { data } = await getSeasonTransactions(currentSeason?.id)
-        const { data: p } = await getSeasonPrograms(currentSeason?.id)
+        const { data } = await getSeasonTransactions(currentSeason?.id || null)
+        const { data: p } = await getSeasonPrograms(currentSeason?.id || null)
         const { data: m } = await supabase.from('members').select('id,full_name').eq('season_id', currentSeason?.id)
         setTxns(data || []); setPrograms(p || []); setMembers(m || []); setLoading(false)
     }
