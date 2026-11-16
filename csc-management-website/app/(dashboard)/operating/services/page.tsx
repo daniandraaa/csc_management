@@ -21,7 +21,8 @@ export default function ServicesPage() {
 
     async function loadData() {
         setLoading(true)
-        const { data } = await supabase.from('service_categories').select('*, provider:members!service_categories_provider_id_fkey(full_name)').order('type').order('name')
+        const { data } = await supabase.from('service_categories').select('*, provider:members!service_categories_provider_id_fkey(full_name)')
+  .eq('season_id', currentSeasonId).order('type').order('name')
         setServices(data || [])
         setLoading(false)
     }
@@ -53,7 +54,8 @@ export default function ServicesPage() {
 
     async function handleDelete(id: string) {
         if (confirm('Hapus layanan ini?')) {
-            await supabase.from('service_categories').delete().eq('id', id)
+            await supabase.from('service_categories').delete()
+  .eq('season_id', currentSeasonId).eq('id', id)
             loadData()
         }
     }
