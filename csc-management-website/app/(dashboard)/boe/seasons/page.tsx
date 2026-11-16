@@ -17,8 +17,19 @@ import {
     Layers, 
     Sliders,
     Sparkles,
-    Lock
+    Lock,
+    AlertCircle,
+    Repeat2
 } from 'lucide-react'
+
+// Status colors mapping
+const statusColors: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+    'planning': { bg: '#fef3c7', text: '#92400e', icon: null },
+    'active': { bg: '#d1fae5', text: '#065f46', icon: null },
+    'dormant': { bg: '#fee2e2', text: '#7f1d1d', icon: null },
+    'renascent': { bg: '#dbeafe', text: '#0c2d6b', icon: null },
+    'archived': { bg: '#f3f4f6', text: '#374151', icon: null },
+}
 
 export default function SeasonsManagementPage() {
     const { currentUser, currentSeason, availableSeasons, switchSeason } = useCurrentUser()
@@ -137,22 +148,57 @@ export default function SeasonsManagementPage() {
     }
 
     async function handleToggleArchive(seasonId: string, currentStatus: string, cName: string) {
-        const nextStatus = currentStatus === 'archived' ? 'active' : 'archived'
-        if (!confirm(`Ubah status "${cName}" menjadi ${nextStatus.toUpperCase()}?`)) return
+        // Status transition state machine
+        const transitions: Record<string, string[]> = {
+            'planning': ['active', 'archived'],
+            'active': ['dormant', 'archived'],
+            'dormant': ['renascent', 'archived'],
+            'renascent': ['active', 'archived'],
+            'archived': []
+        }
+        
+        const allowedNextStates = transitions[currentStatus] || []
+        if (allowedNextStates.length === 0) {
+            alert(`Status "${currentStatus}" tidak dapat diubah (archived = permanen)`)
+            return
+        }
+        
+        const nextStatus = window.prompt(
+            `Ubah status "${cName}" dari ${currentStatus} ke:\n\n${allowedNextStates.map(s => `• ${s}`).join('\n')}\n\nMasukkan status baru:`,
+            allowedNextStates[0]
+        )
+        
+        if (!nextStatus || !allowedNextStates.includes(nextStatus)) {
+            alert('Status tidak valid atau dibatalkan')
+            return
+        }
 
         try {
+            const updateData: any = { status: nextStatus }
+            
+            // Add timestamps for state transitions
+            if (nextStatus === 'dormant') {
+                updateData.dormant_at = new Date().toISOString()
+                updateData.is_active = false
+            } else if (nextStatus === 'renascent') {
+                updateData.renascent_at = new Date().toISOString()
+            } else if (nextStatus === 'active') {
+                updateData.is_active = true
+                updateData.archived_at = null
+            } else if (nextStatus === 'archived') {
+                updateData.archived_at = new Date().toISOString()
+                updateData.is_active = false
+            }
+            
             await supabase
                 .from('seasons')
-                .update({ 
-                    status: nextStatus,
-                    archived_at: nextStatus === 'archived' ? new Date().toISOString() : null,
-                    is_active: nextStatus === 'archived' ? false : undefined
-                })
+                .update(updateData)
                 .eq('id', seasonId)
 
+            alert(`Kabinet "${cName}" berhasil diubah ke status: ${nextStatus}`)
             await loadSeasons()
         } catch (e: any) {
-            alert('Gagal update status arsip: ' + e.message)
+            alert('Gagal update status kabinet: ' + e.message)
         }
     }
 

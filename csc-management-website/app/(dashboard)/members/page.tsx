@@ -55,7 +55,7 @@ const PDF_COLUMNS = [
 ]
 
 export default function MembersPage() {
-    const { currentUser } = useCurrentUser()
+    const { currentUser, currentSeason } = useCurrentUser()
     const [members, setMembers] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
@@ -74,19 +74,20 @@ export default function MembersPage() {
     const canResetPassword = currentUser?.role === 'BOE' || currentUser?.role === 'C Level' ||
         (currentUser?.role === 'C Level' && currentUser?.department === 'Human Resource')
 
-    useEffect(() => { loadData() }, [])
+    useEffect(() => { loadData() }, [currentSeason?.id])
 
     async function loadData() {
         setLoading(true)
-        const { data } = await supabase.from('members').select('*').order('full_name').limit(5000)
+        const { data } = await supabase.from('members').select('*').eq('season_id', currentSeason?.id || null).order('full_name').limit(5000)
         setMembers(data || [])
         setLoading(false)
     }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
-        if (editId) { await supabase.from('members').update(form).eq('id', editId) }
-        else { await supabase.from('members').insert(form) }
+        const formData = { ...form, season_id: currentSeason?.id || null }
+        if (editId) { await supabase.from('members').update(formData).eq('id', editId) }
+        else { await supabase.from('members').insert(formData) }
         setShowModal(false); setEditId(null)
         setForm({ full_name: '', nim: '', email: '', phone: '', whatsapp: '', department: '', role: '', position: '' })
         loadData()
